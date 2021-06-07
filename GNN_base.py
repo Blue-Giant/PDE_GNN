@@ -896,7 +896,7 @@ def HierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_idx=Non
             atten_neighbors = tf.matmul(atten_ceof2neighbors, edges_feature)  # aggregating neighbors by wight-coefficients
             squeeze2atten_neighbors = tf.squeeze(atten_neighbors, axis=1)     # remove the dimension with 1
         else:
-            # conv2d 函数接收的输入是一个 4d tensor，先将edges_feature扩维
+            # since the conv-operation in tensorflow receive 4D tensor, we firstly expand the dim
             expand_edges = tf.expand_dims(edges_feature, axis=0)    # (1, num_points, k, dim)
             atten_ceof2neighbors = my_conv2d(expand_edges, kernel=kernel2atten, bias2conv=bias2atten, actName=actName2atten)
             atten_ceof2neighbors = tf.nn.softmax(atten_ceof2neighbors)                # normalizing the coefficients
@@ -907,6 +907,7 @@ def HierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_idx=Non
 
             squeeze2atten_neighbors = tf.squeeze(tf.squeeze(atten_neighbors, axis=0), axis=1)   # remove the dimension with 1
         out_set = GNN_activation(tf.add(squeeze_new_points, squeeze2atten_neighbors))
+        # whether needing residual connection for sequential two layers
         if hiddens[i_layer] == hidden_record:
             out_set = tf.add(out_set, out_pre)
         hidden_record = hiddens[i_layer]
@@ -1002,36 +1003,35 @@ def FourierHierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_
         squeeze_new_points = tf.squeeze(tf.squeeze(new_points_cloud, axis=0), axis=0)
         assert len(squeeze_new_points.get_shape()) == 2
 
-        # 选出每个点的邻居，然后的到每个点和各自邻居点的边
+        # obtaining the coords of neighbors
         point_neighbors = tf.gather(squeeze_new_points, select_idx)    # coords for neighbors
 
-        point_central = tf.expand_dims(squeeze_new_points, axis=-2)    # 每个点作为中心点，在倒数第二个位置扩维
-        centroids_tilde = tf.tile(point_central, [1, k_neighbors, 1])  # 中心点复制k份
-        edges_feature = centroids_tilde - point_neighbors              # 中心点和各自的邻居点形成的边(num_points,k,dim)
+        point_central = tf.expand_dims(squeeze_new_points, axis=-2)    # expand the dim for centroid
+        centroids_tilde = tf.tile(point_central, [1, k_neighbors, 1])  # repeat the centroid k times
+        edges_feature = centroids_tilde - point_neighbors              # obtain the edge feature for centroid and neighbors(num_points,k,dim)
 
-        # 根据边的长度计算每个邻居点对应的权重系数，然后根据系数计算邻居点对中心点的贡献
+        # calculating the wight-coefficients for neighbors by edge-feature,then aggregating neighbors by wight-coefficients
         if opt2cal_atten == 'dist_attention':
             atten_ceof2neighbors = cal_attens2neighbors(edges_feature)
             atten_ceof2neighbors = tf.nn.softmax(atten_ceof2neighbors)
-            atten_neighbors = tf.matmul(atten_ceof2neighbors, edges_feature)  # 利用注意力系数将各个邻居聚合起来
-            squeeze2atten_neighbors = tf.squeeze(atten_neighbors, axis=1)     # 去除数值为1的维度
+            atten_neighbors = tf.matmul(atten_ceof2neighbors, edges_feature)  # aggregating neighbors by wight-coefficients
+            squeeze2atten_neighbors = tf.squeeze(atten_neighbors, axis=1)     # remove the dimension with 1
         else:
-            # conv2d 函数接收的输入是一个 4d tensor，先将edges_feature扩维
+            # since the conv-operation in tensorflow receive 4D tensor, we firstly expand the dim
             expand_edges = tf.expand_dims(edges_feature, axis=0)    # (1, num_points, k, dim)
             atten_ceof2neighbors = my_conv2d(expand_edges, kernel=kernel2atten, bias2conv=bias2atten, actName=actName2atten)
-            # 归一化得到注意力系数
-            atten_ceof2neighbors = tf.nn.softmax(atten_ceof2neighbors)
+            atten_ceof2neighbors = tf.nn.softmax(atten_ceof2neighbors)             # normalizing the coefficients
             neighbors_coef = tf.transpose(atten_ceof2neighbors, perm=[0, 1, 3, 2])
 
             expand_neighbors = tf.expand_dims(point_neighbors, axis=0)
-            atten_neighbors = tf.matmul(neighbors_coef, expand_neighbors)  # 利用注意力系数将各个邻居聚合起来
+            atten_neighbors = tf.matmul(neighbors_coef, expand_neighbors)  # aggregating neighbors by wight-coefficients
 
-            squeeze2atten_neighbors = tf.squeeze(tf.squeeze(atten_neighbors, axis=0), axis=1)     # 去除数值为1的维度
-        # 中心点的特征和邻居点的特征相加，得到新的特征
+            squeeze2atten_neighbors = tf.squeeze(tf.squeeze(atten_neighbors, axis=0), axis=1)     # remove the dimension with 1
         out_set = GNN_activation(tf.add(squeeze_new_points, squeeze2atten_neighbors))
         if i_layer == 0:
             out_set = sFourier*tf.concat([tf.cos(out_set), tf.cos(out_set)], axis=-1)
         else:
+            # except for 1st layer, whether needing residual connection for sequential two layers
             if hiddens[i_layer] == hidden_record:
                 out_set = tf.add(out_set, out_pre)
         hidden_record = hiddens[i_layer]
