@@ -1,13 +1,17 @@
+"""
+@author: LXA
+ Date: 2020 年 5 月 31 日
+"""
 import scipy.io as scio
 
 
+def save_trainLoss2mat(lossData, lossName=None, outPath=None):
+    outFile2data = '%s/%s.mat' % (outPath, lossName)
+    key2mat_1 = 'loss_it'
+    scio.savemat(outFile2data, {key2mat_1: lossData})
+
+
 def save_trainLoss2mat_1actFunc(loss_it, loss_bd, loss, actName=None, outPath=None):
-    # if actName == 's2ReLU':
-    #     outFile2data = '%s/Loss2s2ReLU.mat' % (outPath)
-    # if actName == 'sReLU':
-    #     outFile2data = '%s/Loss2sReLU.mat' % (outPath)
-    # if actName == 'ReLU':
-    #     outFile2data = '%s/Loss2ReLU.mat' % (outPath)
     outFile2data = '%s/Loss2%s.mat' % (outPath, actName)
     key2mat_1 = 'loss_it'
     key2mat_2 = 'loss_bd'
@@ -16,12 +20,6 @@ def save_trainLoss2mat_1actFunc(loss_it, loss_bd, loss, actName=None, outPath=No
 
 
 def save_trainLoss2mat_1act_Func(loss_it, loss_bd, loss_bdd, loss, actName=None, outPath=None):
-    # if actName == 's2ReLU':
-    #     outFile2data = '%s/Loss2s2ReLU.mat' % (outPath)
-    # if actName == 'sReLU':
-    #     outFile2data = '%s/Loss2sReLU.mat' % (outPath)
-    # if actName == 'ReLU':
-    #     outFile2data = '%s/Loss2ReLU.mat' % (outPath)
     outFile2data = '%s/Loss2%s.mat' % (outPath, actName)
     key2mat_1 = 'loss_it'
     key2mat_2 = 'loss_bd'
@@ -31,12 +29,6 @@ def save_trainLoss2mat_1act_Func(loss_it, loss_bd, loss_bdd, loss, actName=None,
 
 
 def save_trainLoss2mat_1actFunc_Dirichlet(loss_it, loss_bd, loss_bd2, loss_all, actName=None, outPath=None):
-    # if actName == 's2ReLU':
-    #     outFile2data = '%s/Loss2s2ReLU.mat' % (outPath)
-    # if actName == 'sReLU':
-    #     outFile2data = '%s/Loss2sReLU.mat' % (outPath)
-    # if actName == 'ReLU':
-    #     outFile2data = '%s/Loss2ReLU.mat' % (outPath)
     outFile2data = '%s/Loss2%s.mat' % (outPath, actName)
     key2mat_1 = 'loss_it'
     key2mat_2 = 'loss_bd0'
@@ -46,9 +38,6 @@ def save_trainLoss2mat_1actFunc_Dirichlet(loss_it, loss_bd, loss_bd2, loss_all, 
 
 
 def save_trainLoss2mat_1actFunc_Navier(loss_U, loss_bd, loss_Psi, loss_bdd, loss, actName=None, outPath=None):
-    # print('actName:', actName)
-    # print('id of loss_it:', id(loss_U))
-    # print('values of loss_it:', loss_U)
     if str.lower(actName) == 's2relu':
         outFile2data = '%s/Loss_s2ReLU.mat' % (outPath)
     elif str.lower(actName) == 'srelu':
@@ -79,6 +68,12 @@ def save_train_MSE_REL2mat(Mse_data, Rel_data, actName=None, outPath=None):
     key2mat_1 = 'mse'
     key2mat_2 = 'rel'
     scio.savemat(outFile2data, {key2mat_1: Mse_data, key2mat_2: Rel_data})
+
+
+def save_meshData2mat(data, dataName=None, mesh_number=4, outPath=None):
+    outFile2data = '%s/%s%s.mat' % (outPath, dataName, mesh_number)
+    key2mat = 'U%s' % (str.upper(dataName))
+    scio.savemat(outFile2data, {key2mat: data})
 
 
 # 一个mat文件保存一种数据
@@ -188,6 +183,14 @@ def save_test_point_wise_err2mat(data2point_wise_err, actName=None, outPath=None
     elif str.lower(actName) == 's2relu':
         outFile2data = '%s/pERR2s2ReLU.mat' % (outPath)
         key2mat = 'pERR2s2ReLU'
+        scio.savemat(outFile2data, {key2mat: data2point_wise_err})
+    elif str.lower(actName) == 's3relu':
+        outFile2data = '%s/pERR2s3ReLU.mat' % (outPath)
+        key2mat = 'pERR2smReLU'
+        scio.savemat(outFile2data, {key2mat: data2point_wise_err})
+    elif str.lower(actName) == 'csrelu':
+        outFile2data = '%s/pERR2CsReLU.mat' % (outPath)
+        key2mat = 'pERR2CsReLU'
         scio.savemat(outFile2data, {key2mat: data2point_wise_err})
     elif str.lower(actName) == 'relu':
         outFile2data = '%s/pERR2ReLU.mat' % (outPath)

@@ -1,4 +1,8 @@
-import DNN_tools
+"""
+@author: LXA
+ Date: 2020 年 5 月 31 日
+"""
+import GNN_tools
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
@@ -23,7 +27,7 @@ def plotTrain_loss_1act_func(data2loss, lossType=None, seedNo=1000, outPath=None
         ax.set_yscale('log')
     # plt.title('loss_it', fontsize=15)
     fntmp = '%s/%s%s' % (outPath, seedNo, lossType)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 # 对同一个网络所得到的多个loss数据画图。如画 loss to boundary and loss to interior (loss_bd loss_it)
@@ -42,7 +46,7 @@ def plot_2Trainlosses_1act_func(data2loss_1, data2loss_2, lossName1=None, lossNa
         ax.set_yscale('log')
     # plt.title('loss_it', fontsize=15)
     fntmp = '%s/%s%s' % (outPath, seedNo, lossType)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 # 对同一个网络所得到的多个loss数据画图。如画 loss to boundary and loss to interior
@@ -62,7 +66,7 @@ def plot_3Trainlosses_1act_func(data2loss_1, data2loss_2, data2loss_3, lossName1
         ax.set_yscale('log')
     # plt.title('loss_it', fontsize=15)
     fntmp = '%s/%s%s' % (outPath, seedNo, lossType)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 # 对同两个网络所得到的同一种类型的loss数据画图。如画 loss to boundary
@@ -81,7 +85,7 @@ def plotTrain_losses_2act_funs(data2loss_1, data2loss_2, lossName1=None, lossNam
         ax.set_yscale('log')
     # plt.title('loss_it', fontsize=15)
     fntmp = '%s/%s%s' % (outPath, seedNo, lossType)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 # 对三个网络所得到的同一个类型的loss数据画图。如画 loss to boundary
@@ -101,7 +105,7 @@ def plotTrain_losses_2Type2(data2loss_1, data2loss_2, data2loss_3, lossName1=Non
         ax.set_yscale('log')
     # plt.title('loss_it', fontsize=15)
     fntmp = '%s/%s%s' % (outPath, seedNo, lossType)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 # 这个函数可以由 plot_3losses_1Type(......)代替
@@ -117,7 +121,7 @@ def plotTrain_losses(loss2s2ReLU, loss2sReLU, loss2ReLU, lossType=None, seedNo=1
         plt.legend(fontsize=13)
         # plt.title('loss_it', fontsize=15)
         fntmp = '%s/%sloss_it' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
     elif 'loss_bd' == lossType:
         plt.figure()
         ax = plt.gca()
@@ -130,7 +134,7 @@ def plotTrain_losses(loss2s2ReLU, loss2sReLU, loss2ReLU, lossType=None, seedNo=1
         plt.legend(fontsize=13)
         # plt.title('loss_bd', fontsize=15)
         fntmp = '%s/%sloss_bd' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
     elif 'loss' == lossType:
         plt.figure()
         ax = plt.gca()
@@ -142,7 +146,7 @@ def plotTrain_losses(loss2s2ReLU, loss2sReLU, loss2ReLU, lossType=None, seedNo=1
         plt.legend(fontsize=13)
         # plt.title('loss', fontsize=15)
         fntmp = '%s/%sloss' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plotTrain_MSE_1act_func(data2mse, mseType=None,seedNo=1000, outPath=None, xaxis_scale=False, yaxis_scale=False):
@@ -158,7 +162,7 @@ def plotTrain_MSE_1act_func(data2mse, mseType=None,seedNo=1000, outPath=None, xa
         ax.set_yscale('log')
     # plt.title('training mse', fontsize=13)
     fntmp = '%s/%strain_mse' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plotTrain_REL_1act_func(data2rel, relType=None, seedNo=1000, outPath=None, xaxis_scale=False, yaxis_scale=False):
@@ -174,7 +178,7 @@ def plotTrain_REL_1act_func(data2rel, relType=None, seedNo=1000, outPath=None, x
         ax.set_yscale('log')
     # plt.title('training mse', fontsize=13)
     fntmp = '%s/%strain_mse' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plotTrain_MSE_REL_1act_func(data2mse, data2rel, actName=None, seedNo=1000, outPath=None, xaxis_scale=False,
@@ -197,6 +201,10 @@ def plotTrain_MSE_REL_1act_func(data2mse, data2rel, actName=None, seedNo=1000, o
         fntmp = '%s/%strainErr_%s' % (outPath, seedNo, 'sin')
     elif str.lower(actName) == 's2relu':
         fntmp = '%s/%strainErr_%s' % (outPath, seedNo, 's2ReLU')
+    elif str.lower(actName) == 's3relu':
+        fntmp = '%s/%strainErr_%s' % (outPath, seedNo, 's3ReLU')
+    elif str.lower(actName) == 'csrelu':
+        fntmp = '%s/%strainErr_%s' % (outPath, seedNo, 'CsReLU')
     elif str.lower(actName) == 'relu':
         fntmp = '%s/%strainErr_%s' % (outPath, seedNo, 'ReLU')
     elif str.lower(actName) == 'elu':
@@ -215,7 +223,7 @@ def plotTrain_MSE_REL_1act_func(data2mse, data2rel, actName=None, seedNo=1000, o
         fntmp = '%s/%s_%s' % (outPath, seedNo, 'Ummexican2test')
     elif str.lower(actName) == 'sin_modify_mexican':
         fntmp = '%s/%s_%s' % (outPath, seedNo, 'Usm_mexican2test')
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plotTrain_MSEs_2act_funcs(data2mse1, data2mse2, mseName1=None, mseName2=None, seedNo=1000, outPath=None,
@@ -233,7 +241,7 @@ def plotTrain_MSEs_2act_funcs(data2mse1, data2mse2, mseName1=None, mseName2=None
         ax.set_yscale('log')
     # plt.title('training mse', fontsize=13)
     fntmp = '%s/%strain_mses' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plotTrain_RELs_2act_funcs(data2rel1, data2rel2, relName1=None, relName2=None, seedNo=1000, outPath=None,
@@ -251,7 +259,7 @@ def plotTrain_RELs_2act_funcs(data2rel1, data2rel2, relName1=None, relName2=None
         ax.set_yscale('log')
     # plt.title('training mse', fontsize=13)
     fntmp = '%s/%strain_rels' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plotTrain_MSEs_RELs_2act_funcs(mse2data1, mse2data2, rel2data1, rel2data2, actName1=None, actName2=None,
@@ -272,7 +280,7 @@ def plotTrain_MSEs_RELs_2act_funcs(mse2data1, mse2data2, rel2data1, rel2data2, a
     # plt.legend(fontsize=11)
     # plt.title(' train error', fontsize=15)
     fntmp = '%s/%strain_error' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plotTrain_MSEs_RELs_3act_funcs(mse2data1, mse2data2, mse2data3, rel2data1, rel2data2, rel2data3, actName1=None,
@@ -296,7 +304,7 @@ def plotTrain_MSEs_RELs_3act_funcs(mse2data1, mse2data2, mse2data3, rel2data1, r
     # plt.legend(fontsize=11)
     # plt.title(' train error', fontsize=15)
     fntmp = '%s/%strain_Errs' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 # ------------------------------------ plot test results --------------------------------------------------
@@ -315,7 +323,7 @@ def plot_2TestMSEs(data2mse1, data2mse2, mseType1=None, mseType2=None, epoches=N
     plt.legend(fontsize=18)
     plt.title('testing mse ', fontsize=15)
     fntmp = '%s/%stest_mse' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plot_2TestRELs(data2rel1, data2rel2, relType1=None, relType2=None, epoches=1000, seedNo=1000, outPath=None,
@@ -333,7 +341,7 @@ def plot_2TestRELs(data2rel1, data2rel2, relType1=None, relType2=None, epoches=1
     plt.legend(fontsize=18)
     plt.title('testing mse ', fontsize=15)
     fntmp = '%s/%stest_rel' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plotTest_MSE_REL(data2mse, data2rel, epoches, actName=None, seedNo=1000, outPath=None, xaxis_scale=False, yaxis_scale=False):
@@ -350,7 +358,7 @@ def plotTest_MSE_REL(data2mse, data2rel, epoches, actName=None, seedNo=1000, out
     plt.legend(fontsize=18)
     plt.title('testing error ', fontsize=15)
     fntmp = '%s/%stestERR_%s' % (outPath, seedNo, actName)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plot_Test_MSE_REL_2ActFuncs(data_mse1, data_rel1, data_mse2, data_rel2, epoches, actName1=None, actName2=None,
@@ -372,7 +380,7 @@ def plot_Test_MSE_REL_2ActFuncs(data_mse1, data_rel1, data_mse2, data_rel2, epoc
     # plt.legend(fontsize=11)
     # plt.title('testing error ', fontsize=15)
     fntmp = '%s/%stest_error' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plot_Test_MSE_REL_3Types(mse2s2ReLU, mse2sReLU, mse2ReLU, rel2s2ReLU, rel2sReLU, rel2ReLU, epoches=100,
@@ -393,7 +401,7 @@ def plot_Test_MSE_REL_3Types(mse2s2ReLU, mse2sReLU, mse2ReLU, rel2s2ReLU, rel2sR
     # plt.legend(fontsize=11)
     # plt.title('testing error ', fontsize=15)
     fntmp = '%s/%stest_error' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plotTest_MSEs_RELs_3act_funcs(mse2data1, mse2data2, mse2data3, rel2data1, rel2data2, rel2data3, actName1=None,
@@ -417,7 +425,7 @@ def plotTest_MSEs_RELs_3act_funcs(mse2data1, mse2data2, mse2data3, rel2data1, re
     # plt.legend(fontsize=11)
     # plt.title(' train error', fontsize=15)
     fntmp = '%s/%stest_Errs' % (outPath, seedNo)
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plot_2solutions2test(exact_solu2test, predict_solu2test,  coord_points2test=None,
@@ -468,7 +476,7 @@ def plot_2solutions2test(exact_solu2test, predict_solu2test,  coord_points2test=
         mark_inset(ax, axins, loc1=3, loc2=1, fc="none", ec='k', lw=1)
 
         fntmp = '%s/%ssolu2test' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
     elif subfig_type == 2:
         plt.figure(figsize=(16, 10), dpi=98)
         ax = plt.gca()
@@ -505,7 +513,7 @@ def plot_2solutions2test(exact_solu2test, predict_solu2test,  coord_points2test=
         p2.add_artist(con)
 
         fntmp = '%s/%ssolu2test' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
     else:
         # fig11 = plt.figure(figsize=(10, 8))
         fig11 = plt.figure(figsize=(9, 6.5))
@@ -518,7 +526,7 @@ def plot_2solutions2test(exact_solu2test, predict_solu2test,  coord_points2test=
         ax.set_xlabel('x', fontsize=14)
         ax.set_ylabel('u', fontsize=14)
         fntmp = '%s/%ssolu2test' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plot_3solutions2test(exact_solu2test, s2ReLU_solu2test, sReLU_solu2test, ReLU_solu2test,
@@ -573,7 +581,7 @@ def plot_3solutions2test(exact_solu2test, s2ReLU_solu2test, sReLU_solu2test, ReL
         mark_inset(ax, axins, loc1=3, loc2=1, fc="none", ec='k', lw=1)
 
         fntmp = '%s/%ssolu2test' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
     elif subfig_type == 2:
         plt.figure(figsize=(16, 10), dpi=98)
         ax = plt.gca()
@@ -610,7 +618,7 @@ def plot_3solutions2test(exact_solu2test, s2ReLU_solu2test, sReLU_solu2test, ReL
         p2.add_artist(con)
 
         fntmp = '%s/%ssolu2test' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
     else:
         # fig11 = plt.figure(figsize=(10, 8))
         fig11 = plt.figure(figsize=(9, 6.5))
@@ -625,7 +633,7 @@ def plot_3solutions2test(exact_solu2test, s2ReLU_solu2test, sReLU_solu2test, ReL
         ax.set_xlabel('x', fontsize=14)
         ax.set_ylabel('u', fontsize=14)
         fntmp = '%s/%ssolu2test' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plot_Hot_solution2test(solu2test, size_vec2mat=20, actName=None, seedNo=1000, outPath=None):
@@ -643,6 +651,10 @@ def plot_Hot_solution2test(solu2test, size_vec2mat=20, actName=None, seedNo=1000
         fntmp = '%s/%s_%s' % (outPath, seedNo, 'UsReLU2test')
     elif str.lower(actName) == 's2relu':
         fntmp = '%s/%s_%s' % (outPath, seedNo, 'Us2ReLU2test')
+    elif str.lower(actName) == 's3relu':
+        fntmp = '%s/%s_%s' % (outPath, seedNo, 'Us3ReLU2test')
+    elif str.lower(actName) == 'csrelu':
+        fntmp = '%s/%s_%s' % (outPath, seedNo, 'UCsReLU2test')
     elif str.lower(actName) == 'relu':
         fntmp = '%s/%s_%s' % (outPath, seedNo, 'UReLU2test')
     elif str.lower(actName) == 'tanh':
@@ -659,7 +671,7 @@ def plot_Hot_solution2test(solu2test, size_vec2mat=20, actName=None, seedNo=1000
         fntmp = '%s/%s_%s' % (outPath, seedNo, 'Ummexican2test')
     elif str.lower(actName) == 'sin_modify_mexican':
         fntmp = '%s/%s_%s' % (outPath, seedNo, 'Usm-mexican2test')
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
 def plot_scatter_solution2test(solu2test, test_batch, actName=None, seedNo=1000, outPath=None):
@@ -682,7 +694,7 @@ def plot_scatter_solution2test(solu2test, test_batch, actName=None, seedNo=1000,
 
         # plt.title('solution', fontsize=15)
         fntmp = '%s/%ssolu' % (outPath, seedNo)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
     else:
         return
 
@@ -709,7 +721,7 @@ def plot_scatter_solutions2test(solu1_test, solu2_test, test_batch, actName1=Non
 
         # plt.title('solution', fontsize=15)
         fntmp = '%s/%ssolus_%s' % (outPath, seedNo, actName2)
-        DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+        GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
     else:
         return
 
@@ -728,6 +740,10 @@ def plot_Hot_point_wise_err(point_wise_err, size_vec2mat=20, actName=None, seedN
         fntmp = '%s/%spErr_%s' % (outPath, seedNo, 'sReLU')
     elif str.lower(actName) == 's2relu':
         fntmp = '%s/%spErr_%s' % (outPath, seedNo, 's2ReLU')
+    elif str.lower(actName) == 's3relu':
+        fntmp = '%s/%spErr_%s' % (outPath, seedNo, 's3ReLU')
+    elif str.lower(actName) == 'csrelu':
+        fntmp = '%s/%spErr_%s' % (outPath, seedNo, 'CsReLU')
     elif str.lower(actName) == 'relu':
         fntmp = '%s/%spErr_%s' % (outPath, seedNo, 'ReLU')
     elif str.lower(actName) == 'tanh':
@@ -747,6 +763,6 @@ def plot_Hot_point_wise_err(point_wise_err, size_vec2mat=20, actName=None, seedN
     elif str.lower(actName) == 'sin_modify_mexican':
         fntmp = '%s/%spErr_%s' % (outPath, seedNo, 'sm-mexican')
 
-    DNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
+    GNN_tools.mySaveFig(plt, fntmp, ax=ax, isax=1, iseps=0)
 
 
