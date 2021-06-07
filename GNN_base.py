@@ -462,8 +462,6 @@ def my_conv2d(v_input, kernel=None, bias2conv=None, actName=None, if_add_bias=Tr
         kernel: (num_dims, new_num_dims) or (1, *, num_points, new_num_dims)
         bias2conv: (1, 1, 1, new_num_dims)
         actName: the name of activation function
-        if_scale: bool -- whether need scale transform for input
-        freqs2scale: the array of
 
         Returns:
         v_output: (1,1, num_points, new_num_dims)
@@ -523,7 +521,7 @@ def myConv2d_no_activate(v_input, kernel=None, bias2conv=None, if_scale=False, s
         kernel: (num_dims, new_dim) or (1, *, num_points, new_dim)
         bias2conv: (1, 1, 1, new_dim)
         if_scale: bool -- whether need scale transform for input
-        scale_array: the array of
+        scale_array: the array of scale factors
 
         Returns:
         v_output: (1,1, num_points, new_dim)
@@ -595,11 +593,11 @@ def knn_includeself(dist_matrix, k=20):
     """Get KNN based on the pairwise distance.
         How to use tf.nn.top_k(): https://blog.csdn.net/wuguangbin1230/article/details/72820627
       Args:
-        pairwise distance: (batch_size, num_points, num_points)
+        pairwise distance: (num_points, num_points)
         k: int
 
       Returns:
-        nearest neighbors: (batch_size, num_points, k)
+        nearest neighbors: (num_points, k)
       """
     neg_dist = -1.0*dist_matrix
     _, nn_idx = tf.nn.top_k(neg_dist, k=k)  # 这个函数的作用是返回 input 中每行最大的 k 个数，并且返回它们所在位置的索引
@@ -699,20 +697,21 @@ def cal_attens2neighbors(edge_point_set):
 
 
 # 利用输入的卷积核和偏置进行卷积运算，卷积函数使用本人自定义的
-def SingleGNN_myConv(point_set, weight=None, bias=None, nn_idx=None, k_neighbors=20, activate_name='tanh', freqs=None,
+def SingleGNN_myConv(point_set, weight=None, bias=None, nn_idx=None, k_neighbors=10, activate_name='tanh', freqs=None,
                      opt2cal_atten='dist_attention', actName2atten='relu', kernel2atten=None, bias2atten=None):
     """Construct edge feature for each point
         Args:
-        point_set: float array -- (num_points, num_dims)
+        point_set: float array -- (num_points, in_dim)
+        weight: (1, 1, in_dim, out_dim)
+        bias:  (1, 1, 1, out_dim)
         nn_idx: int array --(num_points, k)
         k_neighbors: int
-        weight: (1, 1, num_dims, out_dim)
-        bias:  (1, 1, 1, out_dim)
-        activate_name: string -- the name of activation function for  stretching the dimension of input-variable
-        act2neigh_atten: the activation function of obtaining the coefficient for different neighbor point
-        is_training: bool
-        bn_decay: bool
-        scope2atten: string -- the namespace of attention coefficient for aggregating neighbors
+        activate_name: string -- the name of activation function for changing the dimension of input-variable
+        freqs: array -- the array of scale factors
+        opt2cal_atten: the option for calculating the attention coefficient of neighbors
+        actName2atten: the activation function of obtaining the coefficient for different neighbor point
+        kernel2atten: (1, 1, out_dim, 1)
+        bias2atten: (1, 1, k_neighbors, 1)
 
         Returns:
         new point_set: (num_points, out_dim)
@@ -806,14 +805,14 @@ def HierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_idx=Non
         Bias_list: (1, 1, 1, out_dim1), (1, 1, 1, out_dim2),.....
         nn_idx: int array --(num_points, k)
         k_neighbors: int
-        activate_name: string -- the name of activation function for  stretching the dimension of input-variable
+        activate_name: string -- the name of activation function for  changing the dimension of input-variable
         scale_trans: bool
-        freqs: array
-        opt2cal_atten：string, the option for calculating the attention coefficiant
+        freqs: the array of scale factors
+        opt2cal_atten：string, the option for calculating the attention coefficient of neighbors
         actName2atten: the activation function of obtaining the coefficient for different neighbor point
-        is_training: bool
-        bn_decay: bool
-        scope2atten: string -- the namespace of attention coefficient for aggregating neighbors
+        kernels2atten:(1, 1, hiddens[0], 1), (1, 1, hiddens[1], 1),(1, 1, hiddens[2], 1),...
+        biases2atten: (1, 1, k_neighbors, 1),(1, 1, k_neighbors, 1), (1, 1, k_neighbors, 1),...
+        hiddens: a list --- the number of unit for various hidden layers
 
         Returns:
         new point_set: (num_points, out_dim)
@@ -927,13 +926,14 @@ def FourierHierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_
         Bias_list: (1, 1, 1, out_dim1), (1, 1, 1, out_dim2),.....
         nn_idx: int array --(num_points, k)
         k_neighbors: int
-        activate_name: string -- the name of activation function for  stretching the dimension of input-variable
-        act2neigh_atten: the activation function of obtaining the coefficient for different neighbor point
+        activate_name: string -- the name of activation function for  changing the dimension of input-variable
         scale_trans: bool
-        freqs: array
-        is_training: bool
-        bn_decay: bool
-        scope2atten: string -- the namespace of attention coefficient for aggregating neighbors
+        freqs: the array of scale factors
+        opt2cal_atten：string, the option for calculating the attention coefficient of neighbors
+        actName2atten: the activation function of obtaining the coefficient for different neighbor point
+        kernels2atten:(1, 1, hiddens[0], 1), (1, 1, hiddens[1], 1),(1, 1, hiddens[2], 1),...
+        biases2atten: (1, 1, k_neighbors, 1),(1, 1, k_neighbors, 1), (1, 1, k_neighbors, 1),...
+        hiddens: a list --- the number of unit for various hidden layers
 
         Returns:
         new point_set: (num_points, out_dim)
