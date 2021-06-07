@@ -51,10 +51,10 @@ def solve_multiScale_operator(R):
     w2kernel = R['width2kernel']
     knn2xy = R['num2neighbor']
 
-    # p laplace 问题需要的额外设置, 先预设一下
+    mesh_number2train = R['mesh_number2train']
+    mesh_number2test = R['mesh_number2test']
     p = 2
     epsilon = 0.1
-    mesh_number = 2
 
     region_lb = 0.0
     region_rt = 1.0
@@ -69,7 +69,6 @@ def solve_multiScale_operator(R):
         dim2kernel = input_dim + 1
         p_index = R['order2pLaplace_operator']
         epsilon = R['epsilon']
-        mesh_number = R['mesh_number']
         if R['equa_name'] == 'multi_scale2D_5':
             region_lb = 0.0
             region_rt = 1.0
@@ -77,13 +76,12 @@ def solve_multiScale_operator(R):
             region_lb = -1.0
             region_rt = 1.0
         u_true, f, A_eps, u_left, u_right, u_bottom, u_top = MS_LaplaceEqs.get_infos2pLaplace_2D(
-            input_dim=input_dim, out_dim=out_dim, mesh_number=R['mesh_number'], intervalL=0.0, intervalR=1.0,
+            input_dim=input_dim, out_dim=out_dim, mesh_number=mesh_number2train, intervalL=0.0, intervalR=1.0,
             equa_name=R['equa_name'])
     elif R['PDE_type'] == 'pLaplace_explicit':
         dim2kernel = input_dim + 1
         p_index = R['order2pLaplace_operator']
         epsilon = R['epsilon']
-        mesh_number = R['mesh_number']
         if R['equa_name'] == 'multi_scale2D_7':
             region_lb = 0.0
             region_rt = 1.0
@@ -98,7 +96,6 @@ def solve_multiScale_operator(R):
         region_rt = 1.0
         p_index = R['order2pLaplace_operator']
         epsilon = R['epsilon']
-        mesh_number = R['mesh_number']
         A_eps, kappa, u_true, u_left, u_right, u_top, u_bottom, f = MS_BoltzmannEqs.get_infos2Boltzmann_2D(
             equa_name=R['equa_name'], intervalL=region_lb, intervalR=region_rt)
     elif R['PDE_type'] == 'Convection_diffusion':
@@ -107,7 +104,7 @@ def solve_multiScale_operator(R):
         region_rt = 1.0
         p_index = R['order2pLaplace_operator']
         epsilon = R['epsilon']
-        mesh_number = R['mesh_number']
+
         A_eps, Bx, By, u_true, u_left, u_right, u_top, u_bottom, f = MS_ConvectionEqs.get_infos2Convection_2D(
             equa_name=R['equa_name'], eps=epsilon, region_lb=0.0, region_rt=1.0)
 
@@ -129,10 +126,10 @@ def solve_multiScale_operator(R):
     global_steps = tf.Variable(0, trainable=False)
     with tf.device('/gpu:%s' % (R['gpuNo'])):
         with tf.variable_scope('vscope', reuse=tf.AUTO_REUSE):
-            XY_train = tf.placeholder(tf.float32, name='XY_train', shape=[batchsize2train, input_dim])  # * 行 2 列
-            XY_test = tf.placeholder(tf.float32, name='XY_test', shape=[batchsize2test, input_dim])  # * 行 2 列
-            Utrue2train = tf.placeholder(tf.float32, name='Utrue2train', shape=[batchsize2train, out_dim])        # * 行 2 列
-            Utrue2test = tf.placeholder(tf.float32, name='Utrue2test', shape=[batchsize2train, out_dim])  # * 行 2 列
+            XY_train = tf.placeholder(tf.float32, name='XY_train', shape=[batchsize2train, input_dim])
+            XY_test = tf.placeholder(tf.float32, name='XY_test', shape=[batchsize2test, input_dim])
+            Utrue2train = tf.placeholder(tf.float32, name='Utrue2train', shape=[batchsize2train, out_dim])
+            Utrue2test = tf.placeholder(tf.float32, name='Utrue2test', shape=[batchsize2train, out_dim])
             in_learning_rate = tf.placeholder_with_default(input=1e-5, shape=[], name='lr')
 
             freq_array = R['freqs']
@@ -208,51 +205,30 @@ def solve_multiScale_operator(R):
     test_mse_all, test_rel_all = [], []
     test_epoch = []
 
-    if R['testData_model'] == 'random_generate':
-        # 生成测试数据，用于测试训练后的网络
-        test_bach_size = 1600
-        size2test = 40
-        # test_bach_size = 4900
-        # size2test = 70
-        # test_bach_size = 10000
-        # size2test = 100
-        test_xy_bach = GNN_data.rand_it(test_bach_size, input_dim, region_lb, region_rt)
-        saveData.save_testData_or_solus2mat(test_xy_bach, dataName='testXY', outPath=R['FolderName'])
-    else:
-        if R['PDE_type'] == 'pLaplace_implicit' or R['PDE_type'] == 'pLaplace_explicit':
-            test_xy_bach = matData2pLaplace.get_data2pLaplace(equation_name=R['equa_name'], mesh_number=mesh_number)
-            size2batch = np.shape(test_xy_bach)[0]
-            size2test = int(np.sqrt(size2batch))
-            saveData.save_meshData2mat(test_xy_bach, dataName='meshXY', mesh_number=mesh_number, outPath=R['FolderName'])
-        elif R['PDE_type'] == 'Possion_Boltzmann':
-            if region_lb == (-1.0) and region_rt == 1.0:
-                name2data_file = '11'
-            else:
-                name2data_file = '01'
-            test_xy_bach = matData2Boltzmann.get_meshData2Boltzmann(domain_lr=name2data_file, mesh_number=mesh_number)
-            size2batch = np.shape(test_xy_bach)[0]
-            size2test = int(np.sqrt(size2batch))
-            saveData.save_meshData2mat(test_xy_bach, dataName='meshXY', mesh_number=mesh_number,
-                                       outPath=R['FolderName'])
-        elif R['PDE_type'] == 'Convection_diffusion':
-            if region_lb == (-1.0) and region_rt == 1.0:
-                name2data_file = '11'
-            else:
-                name2data_file = '01'
-            test_xy_bach = matData2Boltzmann.get_meshData2Boltzmann(domain_lr=name2data_file, mesh_number=mesh_number)
-            size2batch = np.shape(test_xy_bach)[0]
-            size2test = int(np.sqrt(size2batch))
-            saveData.save_meshData2mat(test_xy_bach, dataName='meshXY', mesh_number=mesh_number,
-                                       outPath=R['FolderName'])
+    if R['PDE_type'] == 'pLaplace_implicit' or R['PDE_type'] == 'pLaplace_explicit':
+        test_xy = matData2pLaplace.get_meshData2pLaplace(equation_name=R['equa_name'], mesh_number=mesh_number2test)
+        test_u = matData2pLaplace.get_soluData2pLaplace(equation_name=R['equa_name'], mesh_number=mesh_number2test)
+    elif R['PDE_type'] == 'Possion_Boltzmann':
+        if region_lb == (-1.0) and region_rt == 1.0:
+            name2data_file = '11'
         else:
-            test_xy_bach = matData2Laplace.get_randData2Laplace(dim=input_dim, data_path='dataMat_highDim')
-            size2batch = np.shape(test_xy_bach)[0]
-            size2test = int(np.sqrt(size2batch))
+            name2data_file = '01'
+        test_xy = matData2Boltzmann.get_meshData2Boltzmann(domain_lr=name2data_file, mesh_number=mesh_number2test)
+    elif R['PDE_type'] == 'Convection_diffusion':
+        if region_lb == (-1.0) and region_rt == 1.0:
+            name2data_file = '11'
+        else:
+            name2data_file = '01'
+        test_xy = matData2Boltzmann.get_meshData2Boltzmann(domain_lr=name2data_file, mesh_number=mesh_number2test)
 
-    if R['PDE_type'] == 'pLaplace_implicit':
-        mesh2train = 5
-        train_xy_bach = matData2pLaplace.get_meshData2pLaplace(equation_name=R['equa_name'], mesh_number=mesh2train)
-        train_u_bach = matData2pLaplace.get_soluData2pLaplace(equation_name=R['equa_name'], mesh_number=mesh2train)
+    test_xy_bach, test_u_bach = GNN_data.randSample_existData2(coordData=test_xy, soluData=test_u, numSamples=batchsize2test)
+    saveData.save_meshData2mat(test_xy_bach, dataName='meshXY', mesh_number=batchsize2test, outPath=R['FolderName'])
+    saveData.save_meshData2mat(test_u_bach, dataName='meshU', mesh_number=batchsize2test, outPath=R['FolderName'])
+
+    if R['PDE_type'] == 'pLaplace_implicit' or R['PDE_type'] == 'pLaplace_explicit':
+        train_xy_bach = matData2pLaplace.get_meshData2pLaplace(equation_name=R['equa_name'], mesh_number=mesh_number2train)
+        train_u_bach = matData2pLaplace.get_soluData2pLaplace(equation_name=R['equa_name'], mesh_number=mesh_number2train)
+
     # ConfigProto 加上allow_soft_placement=True就可以使用 gpu 了
     config = tf.ConfigProto(allow_soft_placement=True)  # 创建sess的时候对sess进行参数配置
     config.gpu_options.allow_growth = True              # True是让TensorFlow在运行过程中动态申请显存，避免过多的显存占用。
@@ -260,14 +236,10 @@ def solve_multiScale_operator(R):
     with tf.Session(config=config) as sess:
         sess.run(tf.global_variables_initializer())
         tmp_lr = learning_rate
-
-        train_option = True
         for i_epoch in range(R['max_epoch'] + 1):
-            if R['PDE_type'] == 'pLaplace_implicit':
+            if R['PDE_type'] == 'pLaplace_implicit' or R['PDE_type'] == 'pLaplace_explicit':
                 xy_batch, u_batch = GNN_data.randSample_existData2(coordData=train_xy_bach, soluData=train_u_bach,
-                                                                   numSamples=100)
-            else:
-                xy_batch = GNN_data.rand_it(batchsize2train, input_dim, region_a=region_lb, region_b=region_rt)
+                                                                   numSamples=batchsize2train)
             tmp_lr = tmp_lr * (1 - lr_decay)
 
             _, loss_tmp, train_mse_tmp, train_res_tmp, pwb = sess.run(
@@ -282,7 +254,7 @@ def solve_multiScale_operator(R):
                 run_times = time.time() - t0
                 GNN_tools.print_and_log_train_one_epoch(i_epoch, run_times, tmp_lr, pwb, loss_tmp, train_mse_tmp,
                                                         train_res_tmp, log_out=log_fileout)
-                u_nn2test = sess.run(UNN2test,  feed_dict={XY_test: test_xy_bach})
+                # u_nn2test = sess.run(UNN2test,  feed_dict={XY_test: test_xy_bach})
 
         # ------------------- save the testing results into mat file and plot them -------------------------
         saveData.save_trainLoss2mat(loss, lossName='loss', outPath=R['FolderName'])
@@ -372,49 +344,25 @@ if __name__ == "__main__":
         # R['equa_name'] = 'multi_scale2D_7'
 
     if R['PDE_type'] == 'general_Laplace':
-        R['mesh_number'] = 1
         R['epsilon'] = 0.1
         R['order2pLaplace_operator'] = 2
-        # R['batchsize2train'] = 100  # 内部训练数据的批大小
-        # R['batchsize2test'] = 25  # 边界训练数据的批大小
-        R['batchsize2train'] = 1000  # 内部训练数据的批大小
-        R['batchsize2test'] = 500  # 边界训练数据的批大小
     elif R['PDE_type'] == 'pLaplace_implicit':
-        # 频率设置
-        mesh_number = input('please input mesh_number =')  # 由终端输入的会记录为字符串形式
-        R['mesh_number'] = int(mesh_number)  # 字符串转为浮点
+        R['epsilon'] = 0.1
+        R['order2pLaplace_operator'] = 2
+    elif R['PDE_type'] == 'pLaplace_explicit':
+        R['epsilon'] = 0.1
+        R['order2pLaplace_operator'] = 2
 
-        # 频率设置
-        epsilon = input('please input epsilon =')  # 由终端输入的会记录为字符串形式
-        R['epsilon'] = float(epsilon)  # 字符串转为浮点
+    # R['getData_model2train'] = 'random_generate'
+    R['getData_model2train'] = 'load_data'
 
-        # 问题幂次
-        order2p_laplace = input('please input the order(a int number) to p-laplace:')
-        order = float(order2p_laplace)
-        R['order2pLaplace_operator'] = order
+    # R['getData_model2test'] = 'random_generate'
+    R['getData_model2test'] = 'load_data'
 
-        R['batchsize2train'] = 1000  # 内部训练数据的批大小
-        if R['mesh_number'] == 2:
-            R['batchsize2test'] = 25  # 边界训练数据的批大小
-        elif R['mesh_number'] == 3:
-            R['batchsize2test'] = 50  # 边界训练数据的批大小
-        elif R['mesh_number'] == 4:
-            R['batchsize2test'] = 100  # 边界训练数据的批大小
-        elif R['mesh_number'] == 5:
-            R['batchsize2test'] = 200  # 边界训练数据的批大小
-        elif R['mesh_number'] == 6:
-            R['batchsize2test'] = 400  # 边界训练数据的批大小
-    elif R['laplace_opt'] == 'pLaplace_explicit':
-        # 频率设置
-        epsilon = input('please input epsilon =')  # 由终端输入的会记录为字符串形式
-        R['epsilon'] = float(epsilon)  # 字符串转为浮点
-
-        # 问题幂次
-        order2p_laplace = input('please input the order(a int number) to p-laplace:')
-        order = float(order2p_laplace)
-        R['order2pLaplace_operator'] = order
-        R['batchsize2train'] = 1000  # 内部训练数据的批大小
-        R['batchsize2test'] = 500  # 边界训练数据的批大小
+    R['mesh_number2train'] = 6
+    R['mesh_number2test'] = 5
+    R['batchsize2train'] = 200
+    R['batchsize2test'] = 400
 
     # ---------------------------- Setup of DNN -------------------------------
 
@@ -441,20 +389,20 @@ if __name__ == "__main__":
     # R['activate_func']' = leaky_relu'
     # R['activate_func'] = 'srelu'
     # R['activate_func'] = 's2relu'
-    # R['activate_func'] = 'gauss'
     # R['activate_func'] = 'elu'
     # R['activate_func'] = 'phi'
 
     R['freqs'] = np.concatenate(([1], np.arange(1, 50 - 1)), axis=0)
     R['height2kernel'] = 1
     R['width2kernel'] = 1
-    R['num2neighbor'] = 20
-    R['scale_trans'] = True
+    R['num2neighbor'] = 10
+    # R['scale_trans'] = True
+    R['scale_trans'] = False
     if R['PDE_type'] == 'general_Laplace':
         R['scale_trans'] = False
 
-    R['opt2calc_atten'] = 'dist_attention'
-    R['opt2calc_atten'] = 'my_cal_attention'
+    # R['opt2calc_atten'] = 'dist_attention'
+    R['opt2calc_atten'] = 'conv_attention'
 
     solve_multiScale_operator(R)
 
