@@ -696,7 +696,7 @@ def cal_attens2neighbors(edge_point_set):
     return expand_exp_dis
 
 
-# 利用输入的卷积核和偏置进行卷积运算，卷积函数使用本人自定义的
+# single layer GNN module
 def SingleGNN_myConv(point_set, weight=None, bias=None, nn_idx=None, k_neighbors=10, activate_name='tanh', freqs=None,
                      opt2cal_atten='dist_attention', actName2atten='relu', kernel2atten=None, bias2atten=None):
     """Construct edge feature for each point
@@ -736,6 +736,7 @@ def SingleGNN_myConv(point_set, weight=None, bias=None, nn_idx=None, k_neighbors
         GNN_activation = mexican
     elif activate_name == 'phi':
         GNN_activation = phi
+
     point_set_shape = point_set.get_shape()
     assert (len(point_set_shape)) == 2
     num_points = point_set_shape[0].value
@@ -758,24 +759,25 @@ def SingleGNN_myConv(point_set, weight=None, bias=None, nn_idx=None, k_neighbors
     else:
         assert (len(bias_shape)) == 4
 
+    # since the conv-operation in tensorflow receive 4D tensor, we firstly expand the dim for input point_set
     expand_point_set = tf.expand_dims(tf.expand_dims(point_set, axis=0), axis=-2)
     new_points_cloud = myConv2d_no_activate(expand_point_set, kernel=weight, bias2conv=bias, if_scale=False,
                                             scale_array=freqs, add_bias=True)
-    squeeze_new_points = tf.squeeze(new_points_cloud)
+    squeeze_new_points = tf.squeeze(new_points_cloud)              # remove the dimension with 1
 
-    # 选出每个点的邻居，然后的到每个点和各自邻居点的边
-    select_idx = nn_idx                                            # 邻居点的indexes
-    point_neighbors = tf.gather(squeeze_new_points, select_idx)    # 邻居点的'坐标' (num_points, k_neighbors, dim2point)
+    # selecting tha index for neighbors and obtaining the coords of neighbors
+    select_idx = nn_idx                                            # indexes (num_points, k_neighbors)
+    point_neighbors = tf.gather(squeeze_new_points, select_idx)    # coords  (num_points, k_neighbors, dim2point)
 
-    point_central = tf.expand_dims(squeeze_new_points, axis=-2)    # 每个点作为中心点，在倒数第二个位置扩维
-    centroids_tilde = tf.tile(point_central, [1, k_neighbors, 1])  # 中心点复制k份
-    edges_feature = centroids_tilde - point_neighbors              # 中心点和各自的邻居点形成的边
+    point_central = tf.expand_dims(squeeze_new_points, axis=-2)    # expand the dim for centroid
+    centroids_tilde = tf.tile(point_central, [1, k_neighbors, 1])  # repeat the centroid k times
+    edges_feature = centroids_tilde - point_neighbors              # obtain the edge feature for centroid and neighbors
 
-    # 根据边的长度计算每个邻居点对应的权重系数，然后根据系数计算邻居点的边对中心点的贡献
+    # calculating the wight-coefficients for neighbors by edge-feature,then aggregating neighbors by wight-coefficients
     if opt2cal_atten == 'dist_attention':
         atten_ceof2neighbors = cal_attens2neighbors(edges_feature)
         atten_ceof2neighbors = tf.nn.softmax(atten_ceof2neighbors)
-        atten_neighbors = tf.matmul(atten_ceof2neighbors, edges_feature)  # 利用注意力系数将各个邻居聚合起来
+        atten_neighbors = tf.matmul(atten_ceof2neighbors, edges_feature)  # aggregating neighbors by wight-coefficients
     elif opt2cal_atten == 'conv_attention':
         expand_edges = tf.expand_dims(edges_feature, axis=0)
         atten_ceof2neighbors = my_conv2d(expand_edges, kernel=kernel2atten, bias2conv=bias2atten, actName=actName2atten)
@@ -784,17 +786,17 @@ def SingleGNN_myConv(point_set, weight=None, bias=None, nn_idx=None, k_neighbors
         neighbors_coef = tf.transpose(atten_ceof2neighbors, perm=[0, 1, 3, 2])
 
         expand_neighbors = tf.expand_dims(point_neighbors, axis=0)
-        atten_neighbors = tf.matmul(neighbors_coef, expand_neighbors)   # 利用注意力系数将各个邻居聚合起来
+        atten_neighbors = tf.matmul(neighbors_coef, expand_neighbors)   # aggregating neighbors by wight-coefficients
 
-    squeeze2atten_neighbors = tf.squeeze(atten_neighbors)                   # 去除数值为1的维度
+    squeeze2atten_neighbors = tf.squeeze(atten_neighbors)               # remove the dimension with 1
 
-    # 中心点的特征和邻居点的特征相加，得到新的特征
+    # obtain the nwe point-set with new feature
     new_point_set = GNN_activation(tf.add(squeeze_new_points, squeeze2atten_neighbors))
 
     return new_point_set
 
 
-# 利用输入的卷积核和偏置进行卷积运算，卷积函数使用本人自定义的
+# multiple layers GNN module
 def HierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_idx=None, k_neighbors=10, activate_name=None,
                          scale_trans=False, freqs=None, opt2cal_atten='dist_attention', actName2atten='relu',
                          kernels2atten=None, biases2atten=None, hiddens=None):
@@ -843,8 +845,9 @@ def HierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_idx=Non
     num_points = point_set_shape[0].value
     num_dims = point_set_shape[1].value
 
-    # select_idx = nn_idx + num_points  # 邻居点的indexes
-    select_idx = nn_idx                 # 邻居点的indexes
+    # selecting tha index for neighbors
+    # select_idx = nn_idx + num_points  # indexes for neighbors
+    select_idx = nn_idx                 # indexes for neighbors
 
     out_set = point_set
     layers = len(hiddens)
@@ -879,32 +882,30 @@ def HierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_idx=Non
         squeeze_new_points = tf.squeeze(tf.squeeze(new_points_cloud, axis=0), axis=0)
         assert len(squeeze_new_points.get_shape()) == 2
 
-        # 选出每个点的邻居，然后的到每个点和各自邻居点的边
-        point_neighbors = tf.gather(squeeze_new_points, select_idx)    # 邻居点的'坐标'
+        # obtaining the coords of neighbors
+        point_neighbors = tf.gather(squeeze_new_points, select_idx)    # coords for neighbors
 
-        point_central = tf.expand_dims(squeeze_new_points, axis=-2)    # 每个点作为中心点，在倒数第二个位置扩维
-        centroids_tilde = tf.tile(point_central, [1, k_neighbors, 1])  # 中心点复制k份
-        edges_feature = centroids_tilde - point_neighbors              # 中心点和各自的邻居点形成的边(num_points,k,dim)
+        point_central = tf.expand_dims(squeeze_new_points, axis=-2)    # expand the dim for centroid
+        centroids_tilde = tf.tile(point_central, [1, k_neighbors, 1])  # repeat the centroid k times
+        edges_feature = centroids_tilde - point_neighbors              # obtain the edge feature for centroid and neighbors(num_points,k,dim)
 
-        # 根据边的长度计算每个邻居点对应的权重系数，然后根据系数计算邻居点对中心点的贡献
+        # calculating the wight-coefficients for neighbors by edge-feature,then aggregating neighbors by wight-coefficients
         if opt2cal_atten == 'dist_attention':
             atten_ceof2neighbors = cal_attens2neighbors(edges_feature)
             atten_ceof2neighbors = tf.nn.softmax(atten_ceof2neighbors)
-            atten_neighbors = tf.matmul(atten_ceof2neighbors, edges_feature)  # 利用注意力系数将各个邻居聚合起来
-            squeeze2atten_neighbors = tf.squeeze(atten_neighbors, axis=1)     # 去除数值为1的维度
+            atten_neighbors = tf.matmul(atten_ceof2neighbors, edges_feature)  # aggregating neighbors by wight-coefficients
+            squeeze2atten_neighbors = tf.squeeze(atten_neighbors, axis=1)     # remove the dimension with 1
         else:
             # conv2d 函数接收的输入是一个 4d tensor，先将edges_feature扩维
             expand_edges = tf.expand_dims(edges_feature, axis=0)    # (1, num_points, k, dim)
             atten_ceof2neighbors = my_conv2d(expand_edges, kernel=kernel2atten, bias2conv=bias2atten, actName=actName2atten)
-            # 归一化得到注意力系数
-            atten_ceof2neighbors = tf.nn.softmax(atten_ceof2neighbors)
+            atten_ceof2neighbors = tf.nn.softmax(atten_ceof2neighbors)                # normalizing the coefficients
             neighbors_coef = tf.transpose(atten_ceof2neighbors, perm=[0, 1, 3, 2])
 
             expand_neighbors = tf.expand_dims(point_neighbors, axis=0)
-            atten_neighbors = tf.matmul(neighbors_coef, expand_neighbors)  # 利用注意力系数将各个邻居聚合起来
+            atten_neighbors = tf.matmul(neighbors_coef, expand_neighbors)  # aggregating neighbors by wight-coefficients
 
-            squeeze2atten_neighbors = tf.squeeze(tf.squeeze(atten_neighbors, axis=0), axis=1)     # 去除数值为1的维度
-        # 中心点的特征和邻居点的特征相加，得到新的特征
+            squeeze2atten_neighbors = tf.squeeze(tf.squeeze(atten_neighbors, axis=0), axis=1)   # remove the dimension with 1
         out_set = GNN_activation(tf.add(squeeze_new_points, squeeze2atten_neighbors))
         if hiddens[i_layer] == hidden_record:
             out_set = tf.add(out_set, out_pre)
@@ -915,7 +916,7 @@ def HierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_idx=Non
     return out_set
 
 
-# 利用输入的卷积核和偏置进行卷积运算，卷积函数使用本人自定义的
+# multiple layers GNN module, only the first layer with Fourier transformation
 def FourierHierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_idx=None, k_neighbors=5,
                                 activate_name=None, scale_trans=False, freqs=None,  opt2cal_atten='dist_attention',
                                 actName2atten='relu', kernels2atten=None, biases2atten=None, hiddens=None, sFourier=1.0):
@@ -964,8 +965,8 @@ def FourierHierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_
     num_points = point_set_shape[0].value
     num_dims = point_set_shape[1].value
 
-    # select_idx = nn_idx + num_points  # 邻居点的indexes
-    select_idx = nn_idx                 # 邻居点的indexes
+    # select_idx = nn_idx + num_points  # indexes for neighbors
+    select_idx = nn_idx                 # indexes for neighbors
 
     out_set = point_set
 
@@ -1002,7 +1003,7 @@ def FourierHierarchicGNN_myConv(point_set, Weight_list=None, Bias_list=None, nn_
         assert len(squeeze_new_points.get_shape()) == 2
 
         # 选出每个点的邻居，然后的到每个点和各自邻居点的边
-        point_neighbors = tf.gather(squeeze_new_points, select_idx)    # 邻居点的'坐标'
+        point_neighbors = tf.gather(squeeze_new_points, select_idx)    # coords for neighbors
 
         point_central = tf.expand_dims(squeeze_new_points, axis=-2)    # 每个点作为中心点，在倒数第二个位置扩维
         centroids_tilde = tf.tile(point_central, [1, k_neighbors, 1])  # 中心点复制k份
@@ -1075,7 +1076,6 @@ def test_CNN_model():
         height2kernel=2, width2kernel=3, hidden_layers=hidden_layer, in_channel=input_dim, out_channel=out_dim)
     with tf.variable_scope('vscope', reuse=tf.AUTO_REUSE):
         XY_mesh = tf.placeholder(tf.float32, name='X_it', shape=[batchsize_it, dim_size])
-        # 在变量的内部区域训练
         U_hat = CNN_model(XY_mesh, kernels=weights2kernel, act_function=activate_func)
         U_hat = tf.reduce_mean(U_hat, axis=-1)
         U_hat = tf.squeeze(U_hat)
@@ -1106,7 +1106,6 @@ def test_SingleGNN_myConv():
     bias_atten = weight_variable([height2kernel, width2kernel, knn2xy, 1], name2weight='Batten')
     with tf.variable_scope('vscope', reuse=tf.AUTO_REUSE):
         XY_mesh = tf.placeholder(tf.float32, name='X_it', shape=[batchsize_it, input_dim])
-        # 在变量的内部区域训练
         adj_matrix = pairwise_distance(XY_mesh)
         idx2knn = knn_excludeself(adj_matrix, k=knn2xy)
         U_hat = SingleGNN_myConv(XY_mesh, weight=kernel, bias=bias, nn_idx=idx2knn, k_neighbors=knn2xy,
@@ -1115,8 +1114,8 @@ def test_SingleGNN_myConv():
 
     # ConfigProto 加上allow_soft_placement=True就可以使用 gpu 了
     config = tf.ConfigProto(allow_soft_placement=True)  # 创建sess的时候对sess进行参数配置
-    config.gpu_options.allow_growth = True  # True是让TensorFlow在运行过程中动态申请显存，避免过多的显存占用。
-    config.allow_soft_placement = True  # 当指定的设备不存在时，允许选择一个存在的设备运行。比如gpu不存在，自动降到cpu上运行
+    config.gpu_options.allow_growth = True              # True是让TensorFlow在运行过程中动态申请显存，避免过多的显存占用。
+    config.allow_soft_placement = True                  # 当指定的设备不存在时，允许选择一个存在的设备运行。比如gpu不存在，自动降到cpu上运行
     with tf.Session(config=config) as sess:
         sess.run(tf.global_variables_initializer())
         xy_mesh_batch = np.random.rand(batchsize_it, input_dim)
@@ -1145,7 +1144,6 @@ def test_HierarchicGNN_myConv():
                                                hidden_layers=hidden_list, Flag=flag2attenKernel)
     with tf.variable_scope('vscope', reuse=tf.AUTO_REUSE):
         XY_mesh = tf.placeholder(tf.float32, name='X_it', shape=[batchsize_it, input_dim])
-        # 在变量的内部区域训练
         adj_matrix = pairwise_distance(XY_mesh)
         idx2knn = knn_excludeself(adj_matrix, k=knn2xy)
         U_hat = HierarchicGNN_myConv(XY_mesh, Weight_list=W2NN, Bias_list=B2NN, nn_idx=idx2knn, k_neighbors=knn2xy,
@@ -1180,7 +1178,6 @@ def test_FourierHierarchicGNN_myConv():
                                             out_size=out_dim, hidden_layers=hidden_list, Flag=flag2kernel)
     with tf.variable_scope('vscope', reuse=tf.AUTO_REUSE):
         XY_mesh = tf.placeholder(tf.float32, name='X_it', shape=[batchsize_it, input_dim])
-        # 在变量的内部区域训练
         adj_matrix = pairwise_distance(XY_mesh)
         idx2knn = knn_excludeself(adj_matrix, k=knn2xy)
         U_hat = FourierHierarchicGNN_myConv(XY_mesh, Weight_list=W2NN, Bias_list=B2NN, nn_idx=idx2knn,
