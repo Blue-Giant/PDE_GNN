@@ -35,8 +35,8 @@ def solve_multiScale_operator(R):
     GNN_PrintLog.dictionary_out2file(R, log_fileout)
 
     # 一般 laplace 问题需要的设置
-    batchsize_it = R['batch_size2interior']
-    batchsize_bd = R['batch_size2boundary']
+    batchsize2train = R['batchsize2train']
+    batchsize2test = R['batchsize2test']
 
     wb_regular = R['regular_weight_biases']                # Regularization parameter for weights and biases
     lr_decay = R['learning_rate_decay']
@@ -129,9 +129,10 @@ def solve_multiScale_operator(R):
     global_steps = tf.Variable(0, trainable=False)
     with tf.device('/gpu:%s' % (R['gpuNo'])):
         with tf.variable_scope('vscope', reuse=tf.AUTO_REUSE):
-            XY_train = tf.placeholder(tf.float32, name='XY_train', shape=[batchsize_it, input_dim])  # * 行 2 列
-            XY_test = tf.placeholder(tf.float32, name='XY_test', shape=[batchsize_it, input_dim])  # * 行 2 列
-            Utrue = tf.placeholder(tf.float32, name='Utrue', shape=[batchsize_bd, out_dim])        # * 行 2 列
+            XY_train = tf.placeholder(tf.float32, name='XY_train', shape=[batchsize2train, input_dim])  # * 行 2 列
+            XY_test = tf.placeholder(tf.float32, name='XY_test', shape=[batchsize2test, input_dim])  # * 行 2 列
+            Utrue2train = tf.placeholder(tf.float32, name='Utrue2train', shape=[batchsize2train, out_dim])        # * 行 2 列
+            Utrue2test = tf.placeholder(tf.float32, name='Utrue2test', shape=[batchsize2train, out_dim])  # * 行 2 列
             in_learning_rate = tf.placeholder_with_default(input=1e-5, shape=[], name='lr')
 
             freq_array = R['freqs']
@@ -182,9 +183,9 @@ def solve_multiScale_operator(R):
                     opt2cal_atten=R['opt2calc_atten'], actName2atten='relu', kernels2atten=W2atten,
                     biases2atten=B2atten, hiddens=hiddens_list)
             if R['PDE_type'] != 'pLaplace_implicit':
-                Utrue = u_true(X_it, Y_it)
+                Utrue2train = u_true(X_it, Y_it)
 
-            loss_u = tf.reduce_mean(tf.square(UNN2train - Utrue))
+            loss_u = tf.reduce_mean(tf.square(UNN2train - Utrue2train))
 
             if R['regular_weight_model'] == 'L1':
                 regular_WB = GNN_base.regular_weights_biases_L1(W2NN, B2NN)          # 正则化权重和偏置 L1正则化
@@ -200,7 +201,7 @@ def solve_multiScale_operator(R):
             train_my_loss = my_optimizer.minimize(loss, global_step=global_steps)
 
             train_mse = loss_u
-            train_rel = train_mse / tf.reduce_mean(tf.square(Utrue))
+            train_rel = train_mse / tf.reduce_mean(tf.square(Utrue2train))
 
     t0 = time.time()
     loss_all, train_mse_all, train_rel_all = [], [], []  # 空列表, 使用 append() 添加元素
@@ -266,12 +267,12 @@ def solve_multiScale_operator(R):
                 xy_batch, u_batch = GNN_data.randSample_existData2(coordData=train_xy_bach, soluData=train_u_bach,
                                                                    numSamples=100)
             else:
-                xy_batch = GNN_data.rand_it(batchsize_it, input_dim, region_a=region_lb, region_b=region_rt)
+                xy_batch = GNN_data.rand_it(batchsize2train, input_dim, region_a=region_lb, region_b=region_rt)
             tmp_lr = tmp_lr * (1 - lr_decay)
 
             _, loss_tmp, train_mse_tmp, train_res_tmp, pwb = sess.run(
                 [train_my_loss, loss, train_mse, train_rel, PWB],
-                feed_dict={XY_train: xy_batch, Utrue: u_batch, in_learning_rate: tmp_lr})
+                feed_dict={XY_train: xy_batch, Utrue2train: u_batch, in_learning_rate: tmp_lr})
 
             loss_all.append(loss_tmp)
             train_mse_all.append(train_mse_tmp)
@@ -374,10 +375,10 @@ if __name__ == "__main__":
         R['mesh_number'] = 1
         R['epsilon'] = 0.1
         R['order2pLaplace_operator'] = 2
-        # R['batch_size2interior'] = 100  # 内部训练数据的批大小
-        # R['batch_size2boundary'] = 25  # 边界训练数据的批大小
-        R['batch_size2interior'] = 1000  # 内部训练数据的批大小
-        R['batch_size2boundary'] = 500  # 边界训练数据的批大小
+        # R['batchsize2train'] = 100  # 内部训练数据的批大小
+        # R['batchsize2test'] = 25  # 边界训练数据的批大小
+        R['batchsize2train'] = 1000  # 内部训练数据的批大小
+        R['batchsize2test'] = 500  # 边界训练数据的批大小
     elif R['PDE_type'] == 'pLaplace_implicit':
         # 频率设置
         mesh_number = input('please input mesh_number =')  # 由终端输入的会记录为字符串形式
@@ -392,17 +393,17 @@ if __name__ == "__main__":
         order = float(order2p_laplace)
         R['order2pLaplace_operator'] = order
 
-        R['batch_size2interior'] = 1000  # 内部训练数据的批大小
+        R['batchsize2train'] = 1000  # 内部训练数据的批大小
         if R['mesh_number'] == 2:
-            R['batch_size2boundary'] = 25  # 边界训练数据的批大小
+            R['batchsize2test'] = 25  # 边界训练数据的批大小
         elif R['mesh_number'] == 3:
-            R['batch_size2boundary'] = 50  # 边界训练数据的批大小
+            R['batchsize2test'] = 50  # 边界训练数据的批大小
         elif R['mesh_number'] == 4:
-            R['batch_size2boundary'] = 100  # 边界训练数据的批大小
+            R['batchsize2test'] = 100  # 边界训练数据的批大小
         elif R['mesh_number'] == 5:
-            R['batch_size2boundary'] = 200  # 边界训练数据的批大小
+            R['batchsize2test'] = 200  # 边界训练数据的批大小
         elif R['mesh_number'] == 6:
-            R['batch_size2boundary'] = 400  # 边界训练数据的批大小
+            R['batchsize2test'] = 400  # 边界训练数据的批大小
     elif R['laplace_opt'] == 'pLaplace_explicit':
         # 频率设置
         epsilon = input('please input epsilon =')  # 由终端输入的会记录为字符串形式
@@ -412,8 +413,8 @@ if __name__ == "__main__":
         order2p_laplace = input('please input the order(a int number) to p-laplace:')
         order = float(order2p_laplace)
         R['order2pLaplace_operator'] = order
-        R['batch_size2interior'] = 1000  # 内部训练数据的批大小
-        R['batch_size2boundary'] = 500  # 边界训练数据的批大小
+        R['batchsize2train'] = 1000  # 内部训练数据的批大小
+        R['batchsize2test'] = 500  # 边界训练数据的批大小
 
     # ---------------------------- Setup of DNN -------------------------------
 
@@ -452,8 +453,8 @@ if __name__ == "__main__":
     if R['PDE_type'] == 'general_Laplace':
         R['scale_trans'] = False
 
-    R['opt2calculate_attention'] = 'dist_attention'
-    R['opt2calculate_attention'] = 'my_cal_attention'
+    R['opt2calc_atten'] = 'dist_attention'
+    R['opt2calc_atten'] = 'my_cal_attention'
 
     solve_multiScale_operator(R)
 
