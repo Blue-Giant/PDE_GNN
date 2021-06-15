@@ -160,13 +160,15 @@ def solve_multiScale_operator(R):
 
     flag2Kernel = 'WB2kernel'
     if R['model2kernel'] == 'DNN':
-        wlist2kernel, blist2kernel = GNN_base1.Xavier_init_NN(2 * out_dim2trans, out_dim2trans * out_dim2trans,
+        wlist2kernel, blist2kernel = GNN_base1.Xavier_init_NN(2 * init_dim, out_dim2trans * out_dim2trans,
                                                               hiddenlist2kernel, Flag=flag2Kernel)
     elif R['model2kernel'] == 'Fourier_DNN':
-        wlist2kernel, blist2kernel = GNN_base1.Xavier_init_NN_Fourier(2 * out_dim2trans, out_dim2trans * out_dim2trans,
+        wlist2kernel, blist2kernel = GNN_base1.Xavier_init_NN_Fourier(2 * init_dim, out_dim2trans * out_dim2trans,
                                                               hiddenlist2kernel, Flag=flag2Kernel)
 
-    Wslinear_trans = GNN_base1.Xavier_init_LinearTransW(in_size=out_dim2trans, out_size=out_dim2trans, num2GKN=3)
+    stddev_WB_linear = (2.0 / (out_dim2trans + out_dim2trans)) ** 0.5
+    Wlinear_trans = tf.get_variable(name='Wlinear_trans', shape=(out_dim2trans, out_dim2trans),
+                                    initializer=tf.random_normal_initializer(stddev=stddev_WB_linear), dtype=tf.float32)
 
     stddev_WBout = (2.0 / (out_dim2trans + out_dim)) ** 0.5
     Wout_trans = tf.get_variable(name='Wout_trans', shape=(out_dim2trans, out_dim),
@@ -191,14 +193,14 @@ def solve_multiScale_operator(R):
             else:
                 axy = []
 
-            UNN = GNN_base1.HierarchicGKN(
-                XY, coef_set=axy, concat_model='pre_concat', model2input_trans=R['model2trans_input'],
+            UNN = GNN_base1.HierarchicGKN_ZongYi(
+                XY, coef_set=axy, PDE_type=R['PDE_type'], model2input_trans=R['model2trans_input'],
                 Ws2trans_input=wlist2trans_input, Bs2trans_input=blist2trans_input,
                 actName2trans_input=actFunc2trans_input, hiddens2trans_input=hiddenlist2trans_input,
                 scale_factor=freq_array, nn_idx=idx2knn, k_neighbors=knn2xy, model2kernel=R['model2kernel'],
                 Ws2kernel=wlist2kernel, Bs2kernel=blist2kernel, actName2Kernel=actFunc2kernel,
                 hidden2kernel=hiddenlist2kernel,actName2GKN=actFunc2GKN, dim2linear_trans=out_dim2trans,
-                Ws_trans=Wslinear_trans, num2GKN=3, Wout=Wout_trans, Bout=Bout_trans, actName2out=actFunc2out)
+                W2linear_trans=Wlinear_trans, num2GKN=3, Wout=Wout_trans, Bout=Bout_trans, actName2out=actFunc2out)
 
             loss_u = 100*tf.reduce_mean(tf.square(UNN - Utrue))
 
@@ -422,22 +424,20 @@ if __name__ == "__main__":
 
     if R['model2trans_input'] == 'DNN':
         # 3+ 3*10 + 10*10+ 10*20 + 20*40 = 1133
-        # 3+ 3*10 + 10*10+ 10*20 + 20*30 = 933
         R['hiddens2trans_input'] = (10, 10, 20)
-        R['out_dim2trans'] = 30
+        R['out_dim2trans'] = 40
     elif R['model2trans_input'] == 'Fourier_DNN':
         # 3+ 3*5 + 10*10+ 10*20 + 20*40 = 1118
         R['hiddens2trans_input'] = (5, 10, 20)
-        R['out_dim2trans'] = 30
+        R['out_dim2trans'] = 40
     else:
         # 3*100 = 300
         R['hiddens2trans_input'] = (0)
         R['out_dim2trans'] = 100
-
     if R['model2kernel'] == 'DNN':
-        R['hiddens2kernel'] = (200, 200, 300, 400)
+        R['hiddens2kernel'] = (250, 250, 200, 300)
     else:
-        R['hiddens2kernel'] = (100, 200, 300, 400)
+        R['hiddens2kernel'] = (125, 250, 200, 300)
 
     # R['actFunc2GKN'] = 'relu'
     R['actFunc2GKN'] = 'tanh'
@@ -448,8 +448,8 @@ if __name__ == "__main__":
     R['actFunc2trans_input'] = 'tanh'
     # R['actFunc2trans_input'] = 'relu'
 
-    R['actFunc2kernel'] = 'relu'
-    # R['actFunc2kernel'] = 'tanh'
+    # R['actFunc2kernel'] = 'relu'
+    R['actFunc2kernel'] = 'tanh'
 
     R['actFunc2out'] = 'linear'
 
@@ -459,12 +459,7 @@ if __name__ == "__main__":
 
     solve_multiScale_operator(R)
 
-#  分辨率 q=5作为训练集。分辨率q=6作为测试集时：2021.06.11(这个结果是不对的，因为最后的输出维度设置错误)
-#  1、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with relu; 对于每层的迭代使用relu. (收敛很快，效果好)
-#  2、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with relu; 对于每层的迭代使用tanh. (收敛很快，效果比1还好)
-#  2、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with tanh; 对于每层的迭代使用tanh. (收敛很快，效果不如1好)
-
-#  分辨率 q=5作为训练集。分辨率q=6作为测试集时：2021.06.13
+#  分辨率 q=5作为训练集。分辨率q=6作为测试集时：
 #  1、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with relu; 对于每层的迭代使用relu. (收敛很快，效果好)
 #  2、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with relu; 对于每层的迭代使用tanh. (收敛很快，效果比1还好)
 #  2、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with tanh; 对于每层的迭代使用tanh. (收敛很快，效果不如1好)

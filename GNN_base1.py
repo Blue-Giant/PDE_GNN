@@ -224,6 +224,16 @@ def Xavier_init_NN_Fourier(in_size, out_size, hidden_layers, Flag='flag', varcoe
         return Weights, Biases
 
 
+def Xavier_init_LinearTransW(in_size=10, out_size=10, num2GKN=3, Flag='W_LinearTrans', varcoe=0.5):
+    Ws_list = []
+    for igkn in range(num2GKN):
+        stddev_WB = (2.0 / (in_size + out_size)) ** 0.5
+        Wtrans = tf.get_variable(name=Flag+str(igkn), shape=(in_size, out_size),
+                                 initializer=tf.random_normal_initializer(stddev=stddev_WB), dtype=tf.float32)
+        Ws_list.append(Wtrans)
+    return Ws_list
+
+
 # ----------------------------------- 正则化 -----------------------------------------------
 def regular_weights_biases_L1(weights, biases):
     # L1正则化权重和偏置
@@ -452,8 +462,8 @@ def DNN_FourierBase(variable_input, Weights, Biases, hiddens, freq_frag, activat
     if len(freq_frag) == 1:
         H = tf.add(tf.matmul(H, W_in), B_in)
     else:
-        # H = tf.add(tf.matmul(H, W_in)*mixcoe, B_in)
-        H = tf.matmul(H, W_in) * mixcoe
+        H = tf.add(tf.matmul(H, W_in)*mixcoe, B_in)
+        # H = tf.matmul(H, W_in) * mixcoe
 
     if str.lower(activate_name) == 'tanh':
         sfactor = sFourier
@@ -462,7 +472,7 @@ def DNN_FourierBase(variable_input, Weights, Biases, hiddens, freq_frag, activat
     else:
         sfactor = sFourier
 
-    H = sfactor * (tf.concat([tf.cos(H), tf.sin(H)], axis=1))                        # sfactor=0.5 效果好
+    H = sfactor * (tf.concat([tf.cos(H), tf.sin(H)], axis=-1))                        # sfactor=0.5 效果好
     # H = sfactor * (tf.concat([tf.cos(np.pi * H), tf.sin(np.pi * H)], axis=1))
     # H = sfactor * tf.concat([tf.cos(2 * np.pi * H), tf.sin(2 * np.pi * H)], axis=1)
 
@@ -581,6 +591,45 @@ def cal_attens2neighbors(edge_point_set):
     return expand_exp_dis
 
 
+def activate_GKN(H, actName2GKN='relu'):
+    if actName2GKN == 'relu':
+        GNN_activation = tf.nn.relu
+    elif actName2GKN == 'leaky_relu':
+        GNN_activation = tf.nn.leaky_relu
+    elif actName2GKN == 'srelu':
+        GNN_activation = srelu
+    elif actName2GKN == 's2relu':
+        GNN_activation = s2relu
+    elif actName2GKN == 'elu':
+        GNN_activation = tf.nn.elu
+    elif actName2GKN == 'sin':
+        GNN_activation = mysin
+    elif actName2GKN == 'tanh':
+        GNN_activation = tf.nn.tanh
+    elif actName2GKN == 'gauss':
+        GNN_activation = gauss
+    elif actName2GKN == 'mexican':
+        GNN_activation = mexican
+    elif actName2GKN == 'phi':
+        GNN_activation = phi
+    H = GNN_activation(H)
+    return H
+
+
+def activate_GKNout(H, actName2out='tanh'):
+    if actName2out == 'relu':
+        out = tf.nn.relu(H)
+    elif actName2out == 'leakly_relu':
+        out = tf.nn.leaky_relu(H)
+    elif actName2out == 'tanh':
+        out = tf.nn.tanh(H)
+    elif actName2out == 'elu':
+        out = tf.nn.elu(H)
+    elif actName2out == 'sigmoid':
+        out = tf.nn.sigmoid(H)
+    return out
+
+
 # single layer GKN module
 def SingleGKN(point_set, coef_set=None, Ws2trans_input=None, Bs2trans_input=None, actName2trans_input='tanh',
               hiddens2trans_input=None, scale_factor=None, nn_idx=None, k_neighbors=10, Ws2kernel=None, Bs2kernel=None,
@@ -696,15 +745,17 @@ def SingleGKN(point_set, coef_set=None, Ws2trans_input=None, Bs2trans_input=None
 
 
 # multiple layers GKN module
-def HierarchicGKN(point_set, coef_set=None, PDE_type='Laplace', Ws2trans_input=None, Bs2trans_input=None,
-                  actName2trans_input='tanh',
-                  hiddens2trans_input=None, scale_factor=None, nn_idx=None, k_neighbors=10, Ws2kernel=None,
-                  Bs2kernel=None, actName2Kernel='relu', hidden2kernel=None, actName2GKN='tanh', dim2linear_trans=10,
-                  W2linear_trans=None, num2GKN=5, Wout=None, Bout=None, actName2out='linear'):
+def HierarchicGKN(point_set, coef_set=None, concat_model='pre_concat', model2input_trans='DNN', Ws2trans_input=None,
+                  Bs2trans_input=None, actName2trans_input='tanh', hiddens2trans_input=None, scale_factor=None,
+                  nn_idx=None, k_neighbors=10, model2kernel='DNN',Ws2kernel=None, Bs2kernel=None, actName2Kernel='relu',
+                  hidden2kernel=None, actName2GKN='tanh', dim2linear_trans=10, Ws_trans=None, num2GKN=5, Wout=None,
+                  Bout=None, actName2out='linear'):
     """Construct edge feature for each point
         Args:
         point_set: float array -- (num_points, in_dim)
         coef_set: float array -- (num_points, 1)
+        PDE_type: Problem type
+        model2input_trans: the model to deal with input data
         Ws2trans_input: (1, 1, in_dim, out_dim)
         Bs2trans_input:  (1, 1, 1, out_dim)
         actName2trans_input: string -- the name of activation function for changing the dimension of input-variable
@@ -712,6 +763,7 @@ def HierarchicGKN(point_set, coef_set=None, PDE_type='Laplace', Ws2trans_input=N
         scale_factor: float
         nn_idx: int array --(num_points, k)
         k_neighbors: int
+        model2kernel: the model to deal with kernel
         Ws2kernel:
         Bs2kernel:
         actName2Kernel: string
@@ -748,48 +800,192 @@ def HierarchicGKN(point_set, coef_set=None, PDE_type='Laplace', Ws2trans_input=N
     assert (len(point_set_shape)) == 2
 
     # obtaining the coords of neighbors according to the corresponding index, then obtaining edge-feature
-    select_idx = nn_idx                                           # indexes (num_points, k_neighbors)
-    point_neighbors = tf.gather(point_set, select_idx)            # coords  (num_points, k_neighbors, dim2point)
+    point_neighbors = tf.gather(point_set, nn_idx)                # coords  (num_points, k_neighbors, dim2point)
     point_central = tf.expand_dims(point_set, axis=-2)            # (num_points, dim2point)-->(num_points, 1, dim2point)
     centroid_tilde = tf.tile(point_central, [1, k_neighbors, 1])  # (num_points, k_neighbors, dim2point)
     edges_feature = centroid_tilde - point_neighbors              # (num_points, k_neighbors, dim2point)
 
     # calculating the wight-coefficients for neighbors by edge-feature,then aggregating neighbors by wight-coefficients
-    attention2neighbors = cal_attens2neighbors(edges_feature)  # (num_points, k_neighbors, dim2point)
-    attention2neighbors = tf.nn.softmax(attention2neighbors)   # (num_points, 1, k_neighbors)
+    atten2neighbors = cal_attens2neighbors(edges_feature)  # (num_points, k_neighbors, dim2point)
+    atten2neighbors = tf.nn.softmax(atten2neighbors)       # (num_points, 1, k_neighbors)
 
     # using a DNN model to change the dimension of input_data (point_set||coef_set) or (point_set)
-    assert (len(hiddens2trans_input) >= 2)
+    if concat_model == 'pre_concat':
+        point_coef_set = tf.concat([point_set, coef_set], axis=-1)
+    elif concat_model == 'pre_point':
+        point_coef_set = point_set
+    elif concat_model == 'pre_ceof':
+        point_coef_set = coef_set
+
+    if model2input_trans == 'Linear_transform':
+        new_point_coef_set = tf.add(tf.matmul(point_coef_set, Ws2trans_input), Bs2trans_input)
+    elif model2input_trans == 'DNN':
+        assert (len(hiddens2trans_input) >= 2)
+        new_point_coef_set = DNN(point_coef_set, Ws2trans_input, Bs2trans_input, hiddens2trans_input,
+                                 activate_name=actName2trans_input)
+    else:
+        assert (len(hiddens2trans_input) >= 2)
+        new_point_coef_set = DNN_FourierBase(point_coef_set, Ws2trans_input, Bs2trans_input, hiddens2trans_input,
+                                             scale_factor, activate_name=actName2trans_input)
+    if concat_model == 'pre_ceof':
+        new_point_coef_set = tf.concat([point_set, new_point_coef_set], axis=-1)
+
+    for i_layer in range(num2GKN):
+        W_trans = Ws_trans[i_layer]
+        # calculate the kernel by new_point_coef_set
+        point_coef_neighbors = tf.gather(new_point_coef_set, nn_idx)                # (num_points,k_neighbors,new_dim1)
+        point_coef_central = tf.expand_dims(new_point_coef_set, axis=-2)            # (num_points, 1, new_dim1)
+        point_coef_central_tile = tf.tile(point_coef_central, [1, k_neighbors, 1])  # (num_points,k_neighbors,new_dim1)
+        cen_nei2point_coef = tf.concat([point_coef_central_tile, point_coef_neighbors], axis=-1)  # (num_points, k_neighbors, 2*new_dim1)
+
+        # (num_points, k_neighbors, 2*new_dim1)-->(num_points, k_neighbors, new_dim1*new_dim2)
+        if model2kernel == 'DNN':
+            kernel_matrix = Kernel_DNN(cen_nei2point_coef, Ws2kernel, Bs2kernel, hidden2kernel,
+                                       activate_name=actName2Kernel)
+        else:
+            kernel_matrix = DNN_FourierBase(cen_nei2point_coef, Ws2kernel, Bs2kernel, hidden2kernel, scale_factor,
+                                            activate_name=actName2Kernel)
+
+        # (num_points, k_neighbors, 1, new_dim1*new_dim2) -->(num_points, k_neighbors, new_dim1, new_dim2)
+        kernel_matrix = tf.reshape(kernel_matrix, shape=[-1, k_neighbors, dim2linear_trans, dim2linear_trans])
+
+        # (num_points, k_neighbors, new_dim1) --> # (num_points, k_neighbors, 1, new_dim1)
+        point_coef_neighbors = tf.expand_dims(point_coef_neighbors, axis=-2)
+
+        kernel_matmul_neighbors = tf.matmul(point_coef_neighbors, kernel_matrix)
+        kernel_matmul_neighbors = tf.squeeze(kernel_matmul_neighbors, axis=-2)
+
+        # aggregating neighbors by wight-coefficient
+        atten_neighbors = tf.matmul(atten2neighbors, kernel_matmul_neighbors)
+        squeeze2atten_neighbors = tf.squeeze(atten_neighbors, axis=-2)  # remove the dimension with 1 (num_points, new_dim1)
+
+        # obtain the nwe point-set with new feature
+        trans_new_point_coef_set = tf.matmul(new_point_coef_set, W_trans)  # (num_points, new_dim1)
+        new_point_coef_set = GNN_activation(
+            tf.add(trans_new_point_coef_set, squeeze2atten_neighbors))            # (num_points, new_dim1)
+
+    out_point_set = tf.add(tf.matmul(new_point_coef_set, Wout), Bout)
+    if actName2out == 'relu':
+        out_point_set = tf.nn.relu(out_point_set)
+    elif actName2out == 'leakly_relu':
+        out_point_set = tf.nn.leaky_relu(out_point_set)
+    elif actName2out == 'tanh':
+        out_point_set = tf.nn.tanh(out_point_set)
+    elif actName2out == 'elu':
+        out_point_set = tf.nn.elu(out_point_set)
+    elif actName2out == 'sigmoid':
+        out_point_set = tf.nn.sigmoid(out_point_set)
+    return out_point_set
+
+
+# multiple layers GKN module
+def HierarchicGKN_ZongYi(point_set, coef_set=None, PDE_type='Laplace', model2input_trans='DNN', Ws2trans_input=None,
+                  Bs2trans_input=None, actName2trans_input='tanh', hiddens2trans_input=None, scale_factor=None,
+                  nn_idx=None, k_neighbors=10, model2kernel='DNN',Ws2kernel=None, Bs2kernel=None, actName2Kernel='relu',
+                  hidden2kernel=None, actName2GKN='tanh', dim2linear_trans=10,W2linear_trans=None, num2GKN=5, Wout=None,
+                  Bout=None, actName2out='linear'):
+    """Construct edge feature for each point
+        Args:
+        point_set: float array -- (num_points, in_dim)
+        coef_set: float array -- (num_points, 1)
+        PDE_type: Problem type
+        model2input_trans: the model to deal with input data
+        Ws2trans_input: (1, 1, in_dim, out_dim)
+        Bs2trans_input:  (1, 1, 1, out_dim)
+        actName2trans_input: string -- the name of activation function for changing the dimension of input-variable
+        hiddens2trans_input: list or tuple
+        scale_factor: float
+        nn_idx: int array --(num_points, k)
+        k_neighbors: int
+        model2kernel: the model to deal with kernel
+        Ws2kernel:
+        Bs2kernel:
+        actName2Kernel: string
+        hidden2kernel: list or tuple
+        actName2GKN: the activation function of kernel for obtaining  the different neighbor point
+        dim2linear_trans: (1, 1, out_dim, 1)
+        W2linear_trans: (1, 1, k_neighbors, 1)
+
+        Returns:
+        new point_set: (num_points, out_dim)
+    """
+    if actName2GKN == 'relu':
+        GNN_activation = tf.nn.relu
+    elif actName2GKN == 'leaky_relu':
+        GNN_activation = tf.nn.leaky_relu
+    elif actName2GKN == 'srelu':
+        GNN_activation = srelu
+    elif actName2GKN == 's2relu':
+        GNN_activation = s2relu
+    elif actName2GKN == 'elu':
+        GNN_activation = tf.nn.elu
+    elif actName2GKN == 'sin':
+        GNN_activation = mysin
+    elif actName2GKN == 'tanh':
+        GNN_activation = tf.nn.tanh
+    elif actName2GKN == 'gauss':
+        GNN_activation = gauss
+    elif actName2GKN == 'mexican':
+        GNN_activation = mexican
+    elif actName2GKN == 'phi':
+        GNN_activation = phi
+
+    point_set_shape = point_set.get_shape()
+    assert (len(point_set_shape)) == 2
+
+    # obtaining the coords of neighbors according to the corresponding index, then obtaining edge-feature
+    point_neighbors = tf.gather(point_set, nn_idx)            # coords  (num_points, k_neighbors, dim2point)
+    point_central = tf.expand_dims(point_set, axis=-2)            # (num_points, dim2point)-->(num_points, 1, dim2point)
+    centroid_tilde = tf.tile(point_central, [1, k_neighbors, 1])  # (num_points, k_neighbors, dim2point)
+    edges_feature = centroid_tilde - point_neighbors              # (num_points, k_neighbors, dim2point)
+
+    # calculating the wight-coefficients for neighbors by edge-feature,then aggregating neighbors by wight-coefficients
+    atten2neighbors = cal_attens2neighbors(edges_feature)  # (num_points, k_neighbors, dim2point)
+    atten2neighbors = tf.nn.softmax(atten2neighbors)   # (num_points, 1, k_neighbors)
+
+    # using a DNN model to change the dimension of input_data (point_set||coef_set) or (point_set)
     if PDE_type == 'pLaplace_implicit' or PDE_type == 'pLaplace_explicit' or PDE_type == 'Possion_Boltzmann':
         point_coef_set = tf.concat([point_set, coef_set], axis=-1)
     else:
         point_coef_set = point_set
-    new_point_coef_set = DNN_FourierBase(point_coef_set, Ws2trans_input, Bs2trans_input, hiddens2trans_input,
-                                         scale_factor, activate_name=actName2trans_input)
+
+    point_coef_neighbors = tf.gather(point_coef_set, nn_idx)  # coords  (num_points, k_neighbors, dim2point)
+    point_coef_central = tf.expand_dims(point_coef_set, axis=-2)  # (num_points, dim2point)-->(num_points, 1, dim2point)
+    point_coef_centroid_tilde = tf.tile(point_coef_central, [1, k_neighbors, 1])  # (num_points, k_neighbors, dim2point)
+    cen_nei2point_coef = tf.concat([point_coef_centroid_tilde, point_coef_neighbors], axis=-1)
+    if model2kernel == 'DNN':
+        kernel_matrix = Kernel_DNN(cen_nei2point_coef, Ws2kernel, Bs2kernel, hidden2kernel,
+                                   activate_name=actName2Kernel)
+    else:
+        kernel_matrix = DNN_FourierBase(cen_nei2point_coef, Ws2kernel, Bs2kernel, hidden2kernel,
+                                        scale_factor, activate_name=actName2Kernel)
+
+    if model2input_trans == 'Linear_transform':
+        new_point_coef_set = tf.add(tf.matmul(point_coef_set, Ws2trans_input), Bs2trans_input)
+    elif model2input_trans == 'DNN':
+        assert (len(hiddens2trans_input) >= 2)
+        new_point_coef_set = DNN(point_coef_set, Ws2trans_input, Bs2trans_input, hiddens2trans_input,
+                                 activate_name=actName2trans_input)
+    else:
+        assert (len(hiddens2trans_input) >= 2)
+        new_point_coef_set = DNN_FourierBase(point_coef_set, Ws2trans_input, Bs2trans_input, hiddens2trans_input,
+                                             scale_factor, activate_name=actName2trans_input)
 
     for i_layer in range(num2GKN):
-        # W2linear_trans = Ws2linear_trans[i_layer]
-        # calculate the kernel by new_point_coef_set
-        point_coef_neighbors = tf.gather(new_point_coef_set, select_idx)             # (num_points, k_neighbors, new_dim1)
-        point_coef_central = tf.expand_dims(new_point_coef_set, axis=-2)             # (num_points, 1, new_dim1)
-        point_coef_centroid_tile = tf.tile(point_coef_central, [1, k_neighbors, 1])  # (num_points, k_neighbors, new_dim1)
-        central_neighbor2point_coef = tf.concat([point_coef_centroid_tile, point_coef_neighbors], axis=-1)  # (num_points, k_neighbors, 2*new_dim1)
-        # (num_points, k_neighbors, 2*new_dim1)-->(num_points, k_neighbors, new_dim1*new_dim2)
-        kernel_neighbors = Kernel_DNN(central_neighbor2point_coef, Ws2kernel, Bs2kernel, hidden2kernel,
-                                      activate_name=actName2Kernel)
+        point_coef_neighbors = tf.gather(new_point_coef_set, nn_idx)          # (num_points, k_neighbors, new_dim1)
 
         # (num_points, k_neighbors, new_dim1 * new_dim2)-->(num_points, k_neighbors, 1, new_dim1*new_dim2)
-        kernel_neighbors = tf.expand_dims(kernel_neighbors, axis=-1)
+        kernel_matrix = tf.expand_dims(kernel_matrix, axis=-1)
         # (num_points, k_neighbors, 1, new_dim1*new_dim2) --.(num_points, k_neighbors, new_dim1, new_dim2)
-        kernel_neighbors = tf.reshape(kernel_neighbors, shape=[-1, k_neighbors, dim2linear_trans, dim2linear_trans])
+        kernel_matrix = tf.reshape(kernel_matrix, shape=[-1, k_neighbors, dim2linear_trans, dim2linear_trans])
         # (num_points, k_neighbors, new_dim1) --> # (num_points, k_neighbors, 1, new_dim1)
         point_coef_neighbors = tf.expand_dims(point_coef_neighbors, axis=-2)
-        kernel_matmul_neighbors = tf.matmul(point_coef_neighbors, kernel_neighbors)
+        kernel_matmul_neighbors = tf.matmul(point_coef_neighbors, kernel_matrix)
         kernel_matmul_neighbors = tf.squeeze(kernel_matmul_neighbors, axis=-2)
 
         # aggregating neighbors by wight-coefficient
-        atten_neighbors = tf.matmul(attention2neighbors, kernel_matmul_neighbors)
-        squeeze2atten_neighbors = tf.squeeze(atten_neighbors)  # remove the dimension with 1 (num_points, new_dim1)
+        atten_neighbors = tf.matmul(atten2neighbors, kernel_matmul_neighbors)
+        squeeze2atten_neighbors = tf.squeeze(atten_neighbors, axis=-2)  # remove the dimension with 1 (num_points, new_dim1)
 
         # obtain the nwe point-set with new feature
         trans_new_point_coef_set = tf.matmul(new_point_coef_set, W2linear_trans)  # (num_points, new_dim1)

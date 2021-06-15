@@ -31,12 +31,12 @@ def dictionary_out2file(R_dic, log_fileout):
     GNN_tools.log_string('Equation name for problem: %s\n' % (R_dic['equa_name']), log_fileout)
 
     GNN_tools.log_string('Network model for transforming the input: %s\n' % str(R_dic['model2trans_input']), log_fileout)
-    GNN_tools.log_string('hidden layer for transforming the input:%s\n' % str(R_dic['hiddens2trans_input']), log_fileout)
+    GNN_tools.log_string('hidden layer for transforming the input:%s\n' % str(R_dic['hiddens2input']), log_fileout)
     GNN_tools.log_string('The out-dim of transforming the input-data:%s\n' % str(R_dic['out_dim2trans']),log_fileout)
 
     GNN_tools.log_string('Network model for kernel: %s\n' % str(R_dic['model2kernel']), log_fileout)
     GNN_tools.log_string('hidden layer for kernel:%s\n' % str(R_dic['hiddens2kernel']), log_fileout)
-    GNN_tools.log_string('Activate function for transforming the input: %s\n' % str(R_dic['actFunc2trans_input']), log_fileout)
+    GNN_tools.log_string('Activate function for transforming the input: %s\n' % str(R_dic['actFunc2input']), log_fileout)
     GNN_tools.log_string('Activate function for graph kernel network: %s\n' % str(R_dic['actFunc2GKN']), log_fileout)
     GNN_tools.log_string('Activate function for train kernel: %s\n' % str(R_dic['actFunc2kernel']), log_fileout)
     GNN_tools.log_string('Activate function for output: %s\n' % str(R_dic['actFunc2out']), log_fileout)
@@ -73,19 +73,25 @@ def solve_multiScale_operator(R):
     wb_regular = R['regular_weight_biases']                # Regularization parameter for weights and biases
     lr_decay = R['learning_rate_decay']
     learning_rate = R['learning_rate']
-    hiddenlist2trans_input = R['hiddens2trans_input']
-    hiddenlist2kernel = R['hiddens2kernel']
-    actFunc2trans_input = R['actFunc2trans_input']
+    hiddens2input = R['hiddens2input']
+    hiddens2kernel = R['hiddens2kernel']
+    actFunc2input = R['actFunc2input']
     actFunc2GKN = R['actFunc2GKN']
     actFunc2kernel = R['actFunc2kernel']
-    actFunc2out = R['actFunc2out']
 
     input_dim = R['input_dim']
     out_dim = R['output_dim']
     out_dim2trans = R['out_dim2trans']
+    iters2GKN = R['iteration_GKN']
 
-    knn2xy = R['num2neighbor']
+    kneighbor1 = R['num2neighbor1']
+    kneighbor2 = R['num2neighbor2']
+    kneighbor3 = R['num2neighbor3']
+    kneighbor4 = R['num2neighbor4']
+    kneighbor5 = R['num2neighbor5']
 
+    model2input = R['model2trans_input']
+    model2kernel = R['model2kernel']
     mesh_number2train = R['mesh_number2train']
     mesh_number2test = R['mesh_number2test']
     p = 2
@@ -144,35 +150,33 @@ def solve_multiScale_operator(R):
             equa_name=R['equa_name'], eps=epsilon, region_lb=0.0, region_rt=1.0)
 
     # 初始化权重和和偏置的模式
-    flag2trans_input = 'WB2trans_input'
+    flag2input = 'WB2trans_input'
     if R['model2trans_input'] == 'Linear_transform':
         stddev_WBin = (2.0 / (init_dim + out_dim2trans)) ** 0.5
-        wlist2trans_input = tf.get_variable(name='Win_trans', shape=(init_dim, out_dim2trans),
-                                            initializer=tf.random_normal_initializer(stddev=stddev_WBin), dtype=tf.float32)
-        blist2trans_input = tf.get_variable(name='Bin_trans', shape=(out_dim,),
-                                            initializer=tf.random_normal_initializer(stddev=stddev_WBin), dtype=tf.float32)
+        Ws2input = tf.get_variable(name='Win_trans', shape=(init_dim, out_dim2trans),
+                                   initializer=tf.random_normal_initializer(stddev=stddev_WBin), dtype=tf.float32)
+        Bs2input = tf.get_variable(name='Bin_trans', shape=(out_dim,),
+                                   initializer=tf.random_normal_initializer(stddev=stddev_WBin), dtype=tf.float32)
     elif R['model2trans_input'] == 'Fourier_DNN':
-        wlist2trans_input, blist2trans_input = GNN_base1.Xavier_init_NN_Fourier(
-            init_dim, out_dim2trans, hiddenlist2trans_input, Flag=flag2trans_input)
+        Ws2input, Bs2input = GNN_base1.Xavier_init_NN_Fourier(init_dim, out_dim2trans, hiddens2input, Flag=flag2input)
     else:
-        wlist2trans_input, blist2trans_input = GNN_base1.Xavier_init_NN(
-            init_dim, out_dim2trans, hiddenlist2trans_input, Flag=flag2trans_input)
+        Ws2input, Bs2input = GNN_base1.Xavier_init_NN(init_dim, out_dim2trans, hiddens2input, Flag=flag2input)
 
     flag2Kernel = 'WB2kernel'
     if R['model2kernel'] == 'DNN':
-        wlist2kernel, blist2kernel = GNN_base1.Xavier_init_NN(2 * out_dim2trans, out_dim2trans * out_dim2trans,
-                                                              hiddenlist2kernel, Flag=flag2Kernel)
+        Ws2kernel, Bs2kernel = GNN_base1.Xavier_init_NN(2 * out_dim2trans, out_dim2trans * out_dim2trans,
+                                                        hiddens2kernel, Flag=flag2Kernel)
     elif R['model2kernel'] == 'Fourier_DNN':
-        wlist2kernel, blist2kernel = GNN_base1.Xavier_init_NN_Fourier(2 * out_dim2trans, out_dim2trans * out_dim2trans,
-                                                              hiddenlist2kernel, Flag=flag2Kernel)
+        Ws2kernel, Bs2kernel = GNN_base1.Xavier_init_NN_Fourier(2 * out_dim2trans, out_dim2trans * out_dim2trans,
+                                                                hiddens2kernel, Flag=flag2Kernel)
 
-    Wslinear_trans = GNN_base1.Xavier_init_LinearTransW(in_size=out_dim2trans, out_size=out_dim2trans, num2GKN=3)
+    Wslinear_trans = GNN_base1.Xavier_init_LinearTransW(in_size=out_dim2trans, out_size=out_dim2trans, num2GKN=5)
 
     stddev_WBout = (2.0 / (out_dim2trans + out_dim)) ** 0.5
-    Wout_trans = tf.get_variable(name='Wout_trans', shape=(out_dim2trans, out_dim),
-                                 initializer=tf.random_normal_initializer(stddev=stddev_WBout), dtype=tf.float32)
-    Bout_trans = tf.get_variable(name='Bout_trans', shape=(out_dim,),
-                                 initializer=tf.random_normal_initializer(stddev=stddev_WBout), dtype=tf.float32)
+    Wout = tf.get_variable(name='Wout', shape=(out_dim2trans, out_dim),
+                           initializer=tf.random_normal_initializer(stddev=stddev_WBout), dtype=tf.float32)
+    Bout = tf.get_variable(name='Bout', shape=(out_dim,),
+                           initializer=tf.random_normal_initializer(stddev=stddev_WBout), dtype=tf.float32)
     global_steps = tf.Variable(0, trainable=False)
     with tf.device('/gpu:%s' % (R['gpuNo'])):
         with tf.variable_scope('vscope', reuse=tf.AUTO_REUSE):
@@ -180,41 +184,168 @@ def solve_multiScale_operator(R):
             Utrue = tf.placeholder(tf.float32, name='Utrue', shape=[None, out_dim])
             in_learning_rate = tf.placeholder_with_default(input=1e-5, shape=[], name='lr')
 
-            freq_array = R['freqs']
+            # 最底层的邻居点多一些，最高层的邻居点最少
             adj_matrix = GNN_base1.pairwise_distance(XY)
-            idx2knn = GNN_base1.knn_excludeself(adj_matrix, k=knn2xy)
+            select_idx1 = GNN_base1.knn_excludeself(adj_matrix, k=kneighbor1)  # indexes (num_points, k_neighbors)
+            select_idx2 = GNN_base1.knn_excludeself(adj_matrix, k=kneighbor2)
+            select_idx3 = GNN_base1.knn_excludeself(adj_matrix, k=kneighbor3)
+            select_idx4 = GNN_base1.knn_excludeself(adj_matrix, k=kneighbor4)
+            select_idx5 = GNN_base1.knn_excludeself(adj_matrix, k=kneighbor5)
+
+            # obtaining the coords of neighbors according to the corresponding index, then obtaining edge-feature
+            point_neighbors1 = tf.gather(XY, select_idx1)    # coords  (num_points, k_neighbors, dim2point)
+            point_central = tf.expand_dims(XY, axis=-2)      # (num_points, dim2point)-->(num_points, 1, dim2point)
+            centroid_tile1 = tf.tile(point_central, [1, kneighbor1, 1])    # (num_points, k_neighbors, dim2point)
+            edges_feature1 = centroid_tile1 - point_neighbors1             # (num_points, k_neighbors, dim2point)
+
+            point_neighbors2 = tf.gather(XY, select_idx2)
+            centroid_tile2 = tf.tile(point_central, [1, kneighbor2, 1])
+            edges_feature2 = centroid_tile2 - point_neighbors2
+
+            point_neighbors3 = tf.gather(XY, select_idx3)
+            centroid_tile3 = tf.tile(point_central, [1, kneighbor3, 1])
+            edges_feature3 = centroid_tile3 - point_neighbors3
+
+            point_neighbors4 = tf.gather(XY, select_idx4)
+            centroid_tile4 = tf.tile(point_central, [1, kneighbor4, 1])
+            edges_feature4 = centroid_tile4 - point_neighbors4
+
+            point_neighbors5 = tf.gather(XY, select_idx5)
+            centroid_tile5 = tf.tile(point_central, [1, kneighbor5, 1])
+            edges_feature5 = centroid_tile5 - point_neighbors5
+
+            # calculating the wight-coefficients of neighbors by edge,then aggregating neighbors by wight-coefficients
+            atten1_neighbors = GNN_base1.cal_attens2neighbors(edges_feature1)  # (num_points, k_neighbors, dim2point)
+            atten1_neighbors = tf.nn.softmax(atten1_neighbors)                 # (num_points, 1, k_neighbors)
+
+            atten2_neighbors = GNN_base1.cal_attens2neighbors(edges_feature2)
+            atten2_neighbors = tf.nn.softmax(atten2_neighbors)
+
+            atten3_neighbors = GNN_base1.cal_attens2neighbors(edges_feature3)
+            atten3_neighbors = tf.nn.softmax(atten3_neighbors)
+
+            atten4_neighbors = GNN_base1.cal_attens2neighbors(edges_feature4)
+            atten4_neighbors = tf.nn.softmax(atten4_neighbors)
+
+            atten5_neighbors = GNN_base1.cal_attens2neighbors(edges_feature5)
+            atten5_neighbors = tf.nn.softmax(atten5_neighbors)
+
+            freq_array = R['freqs']
             if R['PDE_type'] == 'pLaplace_implicit' or R['PDE_type'] == 'pLaplace_explicit' or \
-                R['PDE_type'] == 'Possion_Boltzmann':
+                    R['PDE_type'] == 'Possion_Boltzmann':
                 Xcoords = tf.reshape(XY[:, 0], shape=[-1, 1])
                 Ycoords = tf.reshape(XY[:, 1], shape=[-1, 1])
                 axy = A_eps(Xcoords, Ycoords)
             else:
                 axy = []
 
-            UNN = GNN_base1.HierarchicGKN(
-                XY, coef_set=axy, concat_model='pre_concat', model2input_trans=R['model2trans_input'],
-                Ws2trans_input=wlist2trans_input, Bs2trans_input=blist2trans_input,
-                actName2trans_input=actFunc2trans_input, hiddens2trans_input=hiddenlist2trans_input,
-                scale_factor=freq_array, nn_idx=idx2knn, k_neighbors=knn2xy, model2kernel=R['model2kernel'],
-                Ws2kernel=wlist2kernel, Bs2kernel=blist2kernel, actName2Kernel=actFunc2kernel,
-                hidden2kernel=hiddenlist2kernel,actName2GKN=actFunc2GKN, dim2linear_trans=out_dim2trans,
-                Ws_trans=Wslinear_trans, num2GKN=3, Wout=Wout_trans, Bout=Bout_trans, actName2out=actFunc2out)
+            point_set = tf.concat([XY, axy], axis=-1)
+            if model2input == 'Linear_transform':
+                new_point_set = tf.add(tf.matmul(point_set, Ws2input), Bs2input)
+            elif model2input == 'DNN':
+                assert (len(hiddens2input) >= 2)
+                new_point_set = GNN_base1.DNN(point_set, Ws2input, Bs2input, hiddens2input, activate_name=actFunc2input)
+            else:
+                assert (len(hiddens2input) >= 2)
+                new_point_set = GNN_base1.DNN_FourierBase(
+                    point_set, Ws2input, Bs2input, hiddens2input, freq_array, activate_name=actFunc2input)
+
+            for i_layer in range(iters2GKN):
+                W2trans = Wslinear_trans[i_layer]
+                # calculate the kernel by new_point_coef_set
+                new_point_central = tf.expand_dims(new_point_set, axis=-2)  # (num_points, 1, new_dim1)
+                if i_layer == 0:
+                    new_neighbors = tf.gather(new_point_set, select_idx1)                          # (num_points,k_neighbors,new_dim1)
+                    new_point_central_tile = tf.tile(new_point_central, [1, kneighbor1, 1])        # (num_points,k_neighbors,new_dim1)
+                    center_neighbor = tf.concat([new_point_central_tile, new_neighbors], axis=-1)  # (num_points, k_neighbors, 2*new_dim1)
+                elif i_layer == 1:
+                    new_neighbors = tf.gather(new_point_set, select_idx2)
+                    new_point_central_tile = tf.tile(new_point_central, [1, kneighbor2, 1])
+                    center_neighbor = tf.concat([new_point_central_tile, new_neighbors], axis=-1)
+                elif i_layer == 2:
+                    new_neighbors = tf.gather(new_point_set, select_idx3)
+                    new_point_central_tile = tf.tile(new_point_central, [1, kneighbor3, 1])
+                    center_neighbor = tf.concat([new_point_central_tile, new_neighbors], axis=-1)
+                elif i_layer == 3:
+                    new_neighbors = tf.gather(new_point_set, select_idx4)
+                    new_point_central_tile = tf.tile(new_point_central, [1, kneighbor4, 1])
+                    center_neighbor = tf.concat([new_point_central_tile, new_neighbors], axis=-1)
+                elif i_layer == 4:
+                    new_neighbors = tf.gather(new_point_set, select_idx5)
+                    new_point_central_tile = tf.tile(new_point_central, [1, kneighbor5, 1])
+                    center_neighbor = tf.concat([new_point_central_tile, new_neighbors], axis=-1)
+
+                # (num_points, k_neighbors, 2*new_dim1)-->(num_points, k_neighbors, new_dim1*new_dim2)
+                if model2kernel == 'DNN':
+                    kernel_matrix = GNN_base1.Kernel_DNN(center_neighbor, Ws2kernel, Bs2kernel, hiddens2kernel,
+                                                         activate_name=actFunc2kernel)
+                else:
+                    kernel_matrix = GNN_base1.DNN_FourierBase(center_neighbor, Ws2kernel, Bs2kernel, hiddens2kernel,
+                                                              freq_array, activate_name=actFunc2kernel)
+
+                # (num_points, k_neighbors, new_dim1*new_dim2) -->(num_points, k_neighbors, new_dim1, new_dim2)
+                if i_layer == 0:
+                    kernel_matrix = tf.reshape(kernel_matrix, shape=[-1, kneighbor1, out_dim2trans, out_dim2trans])
+                    # (num_points, k_neighbors, new_dim1) --> # (num_points, k_neighbors, 1, new_dim1)
+                    expand_new_neighbors = tf.expand_dims(new_neighbors, axis=-2)
+
+                    kernel_matmul_neighbors = tf.matmul(expand_new_neighbors, kernel_matrix)
+                    kernel_matmul_neighbors = tf.squeeze(kernel_matmul_neighbors, axis=-2)
+
+                    # aggregating neighbors by wight-coefficient
+                    atten_neighbors = tf.matmul(atten1_neighbors, kernel_matmul_neighbors)
+                elif i_layer == 1:
+                    kernel_matrix = tf.reshape(kernel_matrix, shape=[-1, kneighbor2, out_dim2trans, out_dim2trans])
+                    expand_new_neighbors = tf.expand_dims(new_neighbors, axis=-2)
+                    kernel_matmul_neighbors = tf.matmul(expand_new_neighbors, kernel_matrix)
+                    kernel_matmul_neighbors = tf.squeeze(kernel_matmul_neighbors, axis=-2)
+                    atten_neighbors = tf.matmul(atten2_neighbors, kernel_matmul_neighbors)
+                elif i_layer == 2:
+                    kernel_matrix = tf.reshape(kernel_matrix, shape=[-1, kneighbor3, out_dim2trans, out_dim2trans])
+                    expand_new_neighbors = tf.expand_dims(new_neighbors, axis=-2)
+                    kernel_matmul_neighbors = tf.matmul(expand_new_neighbors, kernel_matrix)
+                    kernel_matmul_neighbors = tf.squeeze(kernel_matmul_neighbors, axis=-2)
+                    atten_neighbors = tf.matmul(atten3_neighbors, kernel_matmul_neighbors)
+                elif i_layer == 3:
+                    kernel_matrix = tf.reshape(kernel_matrix, shape=[-1, kneighbor4, out_dim2trans, out_dim2trans])
+                    expand_new_neighbors = tf.expand_dims(new_neighbors, axis=-2)
+                    kernel_matmul_neighbors = tf.matmul(expand_new_neighbors, kernel_matrix)
+                    kernel_matmul_neighbors = tf.squeeze(kernel_matmul_neighbors, axis=-2)
+                    atten_neighbors = tf.matmul(atten4_neighbors, kernel_matmul_neighbors)
+                elif i_layer == 4:
+                    kernel_matrix = tf.reshape(kernel_matrix, shape=[-1, kneighbor5, out_dim2trans, out_dim2trans])
+                    expand_new_neighbors = tf.expand_dims(new_neighbors, axis=-2)
+                    kernel_matmul_neighbors = tf.matmul(expand_new_neighbors, kernel_matrix)
+                    kernel_matmul_neighbors = tf.squeeze(kernel_matmul_neighbors, axis=-2)
+                    atten_neighbors = tf.matmul(atten5_neighbors, kernel_matmul_neighbors)
+
+                # remove the dimension with 1 (num_points, new_dim1)
+                squeeze2atten_neighbors = tf.squeeze(atten_neighbors, axis=-2)
+
+                # obtain the nwe point-set with new dimension
+                trans_new_point_center = tf.matmul(new_point_set, W2trans)  # (num_points, new_dim)
+                new_point_set = GNN_base1.activate_GKN(
+                    tf.add(trans_new_point_center, squeeze2atten_neighbors))  # (num_points, new_dim)
+
+            out_point_set = tf.add(tf.matmul(new_point_set, Wout), Bout)
+            # UNN = tf.tanh(out_point_set)
+            UNN = GNN_base1.activate_GKNout(out_point_set, actName2out='tanh')
 
             loss_u = 100*tf.reduce_mean(tf.square(UNN - Utrue))
 
             if R['regular_weight_model'] == 'L1':
-                regular_WB2trans_input = GNN_base1.regular_weights_biases_L1(wlist2trans_input, blist2trans_input)
-                regular_WB2kernnel = GNN_base1.regular_weights_biases_L1(wlist2kernel, blist2kernel)
+                regular_WB2input = GNN_base1.regular_weights_biases_L1(Ws2input, Bs2input)
+                regular_WB2kernnel = GNN_base1.regular_weights_biases_L1(Ws2kernel, Bs2kernel)
             elif R['regular_weight_model'] == 'L2':
-                regular_WB2trans_input = GNN_base1.regular_weights_biases_L2(wlist2trans_input, blist2trans_input)
-                regular_WB2kernnel = GNN_base1.regular_weights_biases_L2(wlist2kernel, blist2kernel)
+                regular_WB2input = GNN_base1.regular_weights_biases_L2(Ws2input, Bs2input)
+                regular_WB2kernnel = GNN_base1.regular_weights_biases_L2(Ws2kernel, Bs2kernel)
             else:
-                regular_WB2trans_input = tf.constant(0.0)                                        # 无正则化权重参数
+                regular_WB2input = tf.constant(0.0)                                        # 无正则化权重参数
                 regular_WB2kernnel = tf.constant(0.0)
 
-            PWB2trans_input = wb_regular * regular_WB2trans_input
+            PWB2input = wb_regular * regular_WB2input
             PWB2kernel = wb_regular * regular_WB2kernnel
-            PWB = PWB2trans_input + PWB2kernel
+            PWB = PWB2input + PWB2kernel
             loss = loss_u + PWB                                  # 要优化的loss function
 
             my_optimizer = tf.train.AdamOptimizer(in_learning_rate)
@@ -422,21 +553,21 @@ if __name__ == "__main__":
 
     if R['model2trans_input'] == 'DNN':
         # 3+ 3*10 + 10*10+ 10*20 + 20*40 = 1133
-        # 3+ 3*10 + 10*10+ 10*20 + 20*30 = 933
-        R['hiddens2trans_input'] = (10, 10, 20)
+        R['hiddens2input'] = (10, 10, 20, 20)
         R['out_dim2trans'] = 30
     elif R['model2trans_input'] == 'Fourier_DNN':
         # 3+ 3*5 + 10*10+ 10*20 + 20*40 = 1118
-        R['hiddens2trans_input'] = (5, 10, 20)
+        R['hiddens2input'] = (5, 10, 20, 20)
         R['out_dim2trans'] = 30
     else:
         # 3*100 = 300
-        R['hiddens2trans_input'] = (0)
+        R['hiddens2input'] = (0)
         R['out_dim2trans'] = 100
-
     if R['model2kernel'] == 'DNN':
+        # R['hiddens2kernel'] = (200, 200, 300, 300)
         R['hiddens2kernel'] = (200, 200, 300, 400)
     else:
+        # R['hiddens2kernel'] = (100, 200, 300, 300)
         R['hiddens2kernel'] = (100, 200, 300, 400)
 
     # R['actFunc2GKN'] = 'relu'
@@ -445,8 +576,8 @@ if __name__ == "__main__":
     # R['actFunc2GKN'] = 'srelu'
     # R['actFunc2GKN'] = 's2relu'
 
-    R['actFunc2trans_input'] = 'tanh'
-    # R['actFunc2trans_input'] = 'relu'
+    R['actFunc2input'] = 'tanh'
+    # R['actFunc2input'] = 'relu'
 
     R['actFunc2kernel'] = 'relu'
     # R['actFunc2kernel'] = 'tanh'
@@ -455,17 +586,27 @@ if __name__ == "__main__":
 
     R['freqs'] = np.array([1])
     # R['freqs'] = np.array([1, 1, 2, 3, 4])
-    R['num2neighbor'] = 20
+
+    # R['iteration_GKN'] = 5
+    # R['num2neighbor1'] = 30
+    # R['num2neighbor2'] = 20
+    # R['num2neighbor3'] = 15
+    # R['num2neighbor4'] = 10
+    # R['num2neighbor5'] = 5
+    #
+    # R['iteration_GKN'] = 4
+    # R['num2neighbor1'] = 30
+    # R['num2neighbor2'] = 20
+    # R['num2neighbor3'] = 10
+    # R['num2neighbor4'] = 5
+    # R['num2neighbor5'] = 5
+
+    R['iteration_GKN'] = 3
+    R['num2neighbor1'] = 25
+    R['num2neighbor2'] = 18
+    R['num2neighbor3'] = 10
+    R['num2neighbor4'] = 5
+    R['num2neighbor5'] = 5
 
     solve_multiScale_operator(R)
-
-#  分辨率 q=5作为训练集。分辨率q=6作为测试集时：2021.06.11(这个结果是不对的，因为最后的输出维度设置错误)
-#  1、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with relu; 对于每层的迭代使用relu. (收敛很快，效果好)
-#  2、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with relu; 对于每层的迭代使用tanh. (收敛很快，效果比1还好)
-#  2、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with tanh; 对于每层的迭代使用tanh. (收敛很快，效果不如1好)
-
-#  分辨率 q=5作为训练集。分辨率q=6作为测试集时：2021.06.13
-#  1、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with relu; 对于每层的迭代使用relu. (收敛很快，效果好)
-#  2、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with relu; 对于每层的迭代使用tanh. (收敛很快，效果比1还好)
-#  2、对于输入数据，使用FourierDNN with tanh; 对于Kernel使用DNN with tanh; 对于每层的迭代使用tanh. (收敛很快，效果不如1好)
 
